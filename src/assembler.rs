@@ -44,7 +44,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::INC {
                     oprand: SM83Oprand::R16 {
-                        register: SM83Register16::BC
+                        r16: SM83Register16::BC
                     }
                 },
                 1
@@ -55,7 +55,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::INC {
                     oprand: SM83Oprand::R8 {
-                        register: SM83Register8::B
+                        r8: SM83Register8::B
                     }
                 },
                 1
@@ -66,7 +66,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::DEC {
                     oprand: SM83Oprand::R8 {
-                        register: SM83Register8::B
+                        r8: SM83Register8::B
                     }
                 },
                 1
@@ -126,7 +126,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::DEC {
                     oprand: SM83Oprand::R16 {
-                        register: SM83Register16::BC,
+                        r16: SM83Register16::BC,
                     }
                 },
                 1
@@ -137,7 +137,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::INC {
                     oprand: SM83Oprand::R8 {
-                        register: SM83Register8::C
+                        r8: SM83Register8::C
                     }
                 },
                 1
@@ -148,7 +148,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::DEC {
                     oprand: SM83Oprand::R8 {
-                        register: SM83Register8::C
+                        r8: SM83Register8::C
                     }
                 },
                 1
@@ -196,7 +196,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::INC {
                     oprand: SM83Oprand::R16 {
-                        register: SM83Register16::DE
+                        r16: SM83Register16::DE
                     }
                 },
                 1
@@ -207,7 +207,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::INC {
                     oprand: SM83Oprand::R8 {
-                        register: SM83Register8::D
+                        r8: SM83Register8::D
                     }
                 },
                 1
@@ -218,7 +218,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::DEC {
                     oprand: SM83Oprand::R8 {
-                        register: SM83Register8::D
+                        r8: SM83Register8::D
                     }
                 },
                 1
@@ -275,7 +275,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::DEC {
                     oprand: SM83Oprand::R16 {
-                        register: SM83Register16::DE,
+                        r16: SM83Register16::DE,
                     }
                 },
                 1
@@ -286,7 +286,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::INC {
                     oprand: SM83Oprand::R8 {
-                        register: SM83Register8::E
+                        r8: SM83Register8::E
                     }
                 },
                 1
@@ -297,7 +297,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::DEC {
                     oprand: SM83Oprand::R8 {
-                        register: SM83Register8::E
+                        r8: SM83Register8::E
                     }
                 },
                 1
@@ -356,7 +356,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::INC {
                     oprand: SM83Oprand::R16 {
-                        register: SM83Register16::HL
+                        r16: SM83Register16::HL
                     }
                 },
                 1
@@ -367,7 +367,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::INC {
                     oprand: SM83Oprand::R8 {
-                        register: SM83Register8::H
+                        r8: SM83Register8::H
                     }
                 },
                 1
@@ -378,7 +378,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::DEC {
                     oprand: SM83Oprand::R8 {
-                        register: SM83Register8::H
+                        r8: SM83Register8::H
                     }
                 },
                 1
@@ -438,7 +438,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::DEC {
                     oprand: SM83Oprand::R16 {
-                        register: SM83Register16::HL,
+                        r16: SM83Register16::HL,
                     }
                 },
                 1
@@ -449,7 +449,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::INC {
                     oprand: SM83Oprand::R8 {
-                        register: SM83Register8::L
+                        r8: SM83Register8::L
                     }
                 },
                 1
@@ -460,7 +460,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::DEC {
                     oprand: SM83Oprand::R8 {
-                        register: SM83Register8::L
+                        r8: SM83Register8::L
                     }
                 },
                 1
@@ -519,7 +519,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::INC {
                     oprand: SM83Oprand::R16 {
-                        register: SM83Register16::SP
+                        r16: SM83Register16::SP
                     }
                 },
                 1
@@ -601,7 +601,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::DEC {
                     oprand: SM83Oprand::R16 {
-                        register: SM83Register16::SP,
+                        r16: SM83Register16::SP,
                     }
                 },
                 1
@@ -612,7 +612,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::INC {
                     oprand: SM83Oprand::R8 {
-                        register: SM83Register8::A
+                        r8: SM83Register8::A
                     }
                 },
                 1
@@ -623,7 +623,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 rom,
                 SM83Opcode::DEC {
                     oprand: SM83Oprand::R8 {
-                        register: SM83Register8::A
+                        r8: SM83Register8::A
                     }
                 },
                 1
@@ -2162,6 +2162,28 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                     oprand: SM83Oprand::R8AndR8 {
                         r1: SM83Register8::A,
                         r2: SM83Register8::A,
+                    }
+                },
+                1
+            )
+        }
+        0xC0 => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::RET {
+                    oprand: SM83Oprand::CC {
+                        cc: SM83ConditionCode::NZ,
+                    }
+                },
+                1
+            )
+        }
+        0xC1 => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::POP {
+                    oprand: SM83Oprand::R16 {
+                        r16: SM83Register16::BC,
                     }
                 },
                 1
