@@ -1783,6 +1783,198 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 1
             )
         }
+        0xA0 => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::AND {
+                    oprand: SM83Oprand::R8AndR8 {
+                        r1: SM83Register8::A,
+                        r2: SM83Register8::B,
+                    }
+                },
+                1
+            )
+        }
+        0xA1 => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::AND {
+                    oprand: SM83Oprand::R8AndR8 {
+                        r1: SM83Register8::A,
+                        r2: SM83Register8::C,
+                    }
+                },
+                1
+            )
+        }
+        0xA2 => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::AND {
+                    oprand: SM83Oprand::R8AndR8 {
+                        r1: SM83Register8::A,
+                        r2: SM83Register8::D,
+                    }
+                },
+                1
+            )
+        }
+        0xA3 => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::AND {
+                    oprand: SM83Oprand::R8AndR8 {
+                        r1: SM83Register8::A,
+                        r2: SM83Register8::E,
+                    }
+                },
+                1
+            )
+        }
+        0xA4 => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::AND {
+                    oprand: SM83Oprand::R8AndR8 {
+                        r1: SM83Register8::A,
+                        r2: SM83Register8::H,
+                    }
+                },
+                1
+            )
+        }
+        0xA5 => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::AND {
+                    oprand: SM83Oprand::R8AndR8 {
+                        r1: SM83Register8::A,
+                        r2: SM83Register8::L,
+                    }
+                },
+                1
+            )
+        }
+        0xA6 => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::AND {
+                    oprand: SM83Oprand::R8AndR16Indirect {
+                        r8: SM83Register8::A,
+                        r16: SM83Register16::HL,
+                    }
+                },
+                1
+            )
+        }
+        0xA7 => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::AND {
+                    oprand: SM83Oprand::R8AndR8 {
+                        r1: SM83Register8::A,
+                        r2: SM83Register8::A,
+                    }
+                },
+                1
+            )
+        }
+        0xA8 => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::XOR {
+                    oprand: SM83Oprand::R8AndR8 {
+                        r1: SM83Register8::A,
+                        r2: SM83Register8::B,
+                    }
+                },
+                1
+            )
+        }
+        0xA9 => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::XOR {
+                    oprand: SM83Oprand::R8AndR8 {
+                        r1: SM83Register8::A,
+                        r2: SM83Register8::C,
+                    }
+                },
+                1
+            )
+        }
+        0xAA => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::XOR {
+                    oprand: SM83Oprand::R8AndR8 {
+                        r1: SM83Register8::A,
+                        r2: SM83Register8::D,
+                    }
+                },
+                1
+            )
+        }
+        0xAB => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::XOR {
+                    oprand: SM83Oprand::R8AndR8 {
+                        r1: SM83Register8::A,
+                        r2: SM83Register8::E,
+                    }
+                },
+                1
+            )
+        }
+        0xAC => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::XOR {
+                    oprand: SM83Oprand::R8AndR8 {
+                        r1: SM83Register8::A,
+                        r2: SM83Register8::H,
+                    }
+                },
+                1
+            )
+        }
+        0xAD => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::XOR {
+                    oprand: SM83Oprand::R8AndR8 {
+                        r1: SM83Register8::A,
+                        r2: SM83Register8::L,
+                    }
+                },
+                1
+            )
+        }
+        0xAE => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::XOR {
+                    oprand: SM83Oprand::R8AndR16Indirect {
+                        r8: SM83Register8::A,
+                        r16: SM83Register16::HL,
+                    }
+                },
+                1
+            )
+        }
+        0xAF => {
+            create_opcode_with_length_check!(
+                rom,
+                SM83Opcode::XOR {
+                    oprand: SM83Oprand::R8AndR8 {
+                        r1: SM83Register8::A,
+                        r2: SM83Register8::A,
+                    }
+                },
+                1
+            )
+        }
         _ => panic!("Unsupported Instruction!: {:#X}", rom[0]),
     }
 }
