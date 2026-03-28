@@ -81,6 +81,7 @@ pub enum SM83Oprand {
     R16ToR16 { dst: SM83Register16, src: SM83Register16 },
     R8ToR8 { dst: SM83Register8, src: SM83Register8 },
     R16IndirectToR8 { dst: SM83Register8, src: SM83Register16 },
+    R8ToR16Indirect { dst: SM83Register16, src: SM83Register8 },
     E8 { e8: i8 },
     CCAndE8 { cc: SM83ConditionCode, e8: i8 },
 }
