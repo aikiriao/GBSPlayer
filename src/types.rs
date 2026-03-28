@@ -69,15 +69,15 @@ pub enum SM83ConditionCode {
 /// SM83オペランド
 #[derive(Debug)]
 pub enum SM83Oprand {
-    N16ToR16 { dst: SM83Register16, constant: u16 },
-    R16ToA16 { address: u16, src: SM83Register16 },
+    N16ToR16 { dst: SM83Register16, n16: u16 },
+    R16ToA16 { a16: u16, src: SM83Register16 },
     AToR16Indirect { dst: SM83Register16 },
     R16 { r16: SM83Register16 },
     R8 { r8: SM83Register8 },
     R16Indirect { r16: SM83Register16 },
-    N8ToR8 { dst: SM83Register8, constant: u8 },
-    N8ToR8Indirect { dst: SM83Register8, constant: u8 },
-    N8ToR16Indirect { dst: SM83Register16, constant: u8 },
+    N8ToR8 { dst: SM83Register8, n8: u8 },
+    N8ToR8Indirect { dst: SM83Register8, n8: u8 },
+    N8ToR16Indirect { dst: SM83Register16, n8: u8 },
     R16ToR16 { dst: SM83Register16, src: SM83Register16 },
     R8ToR8 { dst: SM83Register8, src: SM83Register8 },
     R16IndirectToR8 { dst: SM83Register8, src: SM83Register16 },
@@ -87,6 +87,7 @@ pub enum SM83Oprand {
     R8AndR8 { r1: SM83Register8, r2: SM83Register8 },
     R8AndR16Indirect { r8: SM83Register8, r16: SM83Register16 },
     CC { cc: SM83ConditionCode },
+    CCAndA16 { cc: SM83ConditionCode, a16: u16 },
 }
 
 /// SM83オペコード
