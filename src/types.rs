@@ -15,9 +15,9 @@ pub struct SM83Registers {
     pub pc: u16,
 }
 
-/// SM83のレジスタ種別
+/// SM83の16ビットレジスタ種別
 #[derive(Debug)]
-pub enum SM83Register {
+pub enum SM83Register16 {
     /// AF
     AF,
     /// BC
@@ -28,6 +28,15 @@ pub enum SM83Register {
     HL,
     /// SP
     SP,
+    /// HL+
+    HLincrement,
+    /// HL-
+    HLdecrement,
+}
+
+/// SM83の8ビットレジスタ種別
+#[derive(Debug)]
+pub enum SM83Register8 {
     /// A
     A,
     /// B
@@ -42,10 +51,6 @@ pub enum SM83Register {
     H,
     /// L
     L,
-    /// HL+
-    HLincrement,
-    /// HL-
-    HLdecrement,
 }
 
 /// SM83の条件コード
@@ -64,15 +69,18 @@ pub enum SM83ConditionCode {
 /// SM83オペランド
 #[derive(Debug)]
 pub enum SM83Oprand {
-    N16ToR16 { constant: u16, dst: SM83Register },
-    R16ToA16 { src: SM83Register, address: u16 },
-    AToR16Indirect { dst: SM83Register },
-    Register { register: SM83Register },
-    R16Indirect { r16: SM83Register },
-    N8ToR8 { constant: u8, dst: SM83Register },
-    N8ToR8Indirect { constant: u8, dst: SM83Register },
-    R16ToR16 { src: SM83Register, dst: SM83Register },
-    R16IndirectToR8 { src: SM83Register, dst: SM83Register },
+    N16ToR16 { dst: SM83Register16, constant: u16 },
+    R16ToA16 { address: u16, src: SM83Register16 },
+    AToR16Indirect { dst: SM83Register16 },
+    R16 { register: SM83Register16 },
+    R8 { register: SM83Register8 },
+    R16Indirect { r16: SM83Register16 },
+    N8ToR8 { dst: SM83Register8, constant: u8 },
+    N8ToR8Indirect { dst: SM83Register8, constant: u8 },
+    N8ToR16Indirect { dst: SM83Register16, constant: u8 },
+    R16ToR16 { dst: SM83Register16, src: SM83Register16 },
+    R8ToR8 { dst: SM83Register8, src: SM83Register8 },
+    R16IndirectToR8 { dst: SM83Register8, src: SM83Register16 },
     E8 { e8: i8 },
     CCAndE8 { cc: SM83ConditionCode, e8: i8 },
 }
