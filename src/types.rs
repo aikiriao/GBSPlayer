@@ -178,6 +178,8 @@ pub enum SM83Opcode {
     RRC { oprand: SM83Oprand },
     /// RR (Rotate Register Right, Through the Carry Flag)
     RR { oprand: SM83Oprand },
+    /// RL (Rotate Register Left, Through the Carry Flag)
+    RL { oprand: SM83Oprand },
     /// SLA (Shift Left Arithmetically)
     SLA { oprand: SM83Oprand },
     /// SRA (Shift Right Arithmetically)
