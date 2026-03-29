@@ -81,6 +81,68 @@ const HWREG_NR51_SOUND_PANNING: usize = 0xFF25;
 const HWREG_NR52_AUDIO_MASTER_CONTROL: usize = 0xFF26;
 /// チャンネル3の波形RAM
 const HWREG_CHANNEL3_WAVE_PATTERN_RAM_START: usize = 0xFF30;
+/// LCD制御
+const HWREG_LCDC_LCD_CONTROL: usize = 0xFF40;
+/// LCDステータス
+const HWREG_STAT_LCD_STATUS: usize = 0xFF41;
+/// ビューポートのY座標
+const HWREG_SCY_VIEWPORT_Y: usize = 0xFF42;
+/// ビューポートのX座標
+const HWREG_SCX_VIEWPORT_X: usize = 0xFF43;
+/// LCDのY座標
+const HWREG_LY_LCD_Y_COORDINATE: usize = 0xFF44;
+/// LYとの比較
+const HWREG_LYC_LY_COMPARE: usize = 0xFF45;
+/// ROM/RAMからOAM(Object Attribute Memory)へのDMA転送アドレス
+const HWREG_DMA_SOURCE_ADDRESS_START: usize = 0xFF46;
+/// BGパレットデータ
+const HWREG_BGP_BG_PALETTE_DATA: usize = 0xFF47;
+/// パレット0のカラーインデックス
+const HWREG_OBP0_OBJ_PALETTE0: usize = 0xFF48;
+/// パレット1のカラーインデックス
+const HWREG_OBP1_OBJ_PALETTE1: usize = 0xFF49;
+/// ウィンドウのY座標
+const HWREG_WY_WINDOW_Y: usize = 0xFF4A;
+/// ウィンドウのX座標+7
+const HWREG_WX_WINDOW_X_PLUS_7: usize = 0xFF4B;
+/// CPUモードセレクト
+const HWREG_KEY0_CPU_MODE_SELECT: usize = 0xFF4C;
+/// CGBの倍速モード/通常速モードに備える
+const HWREG_KEY1_PREPARE_SPEED_SWITCH: usize = 0xFF4D;
+/// VRAMバンク
+const HWREG_VBK_VRAM_BANK: usize = 0xFF4F;
+/// ブートROMのマッピング制御
+const HWREG_BANK_BOOTROM_MAPPING_CONTROL: usize = 0xFF50;
+/// VRAM DMAのソースアドレス上位
+const HWREG_HDMA1_VRAMDMA_SOURCE_HIGH: usize = 0xFF51;
+/// VRAM DMAのソースアドレス下位
+const HWREG_HDMA2_VRAMDMA_SOURCE_LOW: usize = 0xFF52;
+/// VRAM DMAのターゲットアドレス上位
+const HWREG_HDMA3_VRAMDMA_DESTINATION_HIGH: usize = 0xFF53;
+/// VRAM DMAのターゲットアドレス下位
+const HWREG_HDMA4_VRAMDMA_DESTINATION_LOW: usize = 0xFF54;
+/// VRAM DMAの長さ/モード/開始
+const HWREG_HDMA5_LENGTH_MODE_START: usize = 0xFF55;
+/// 赤外線通信ポート
+const HWREG_RP_INFRATED_COMMUNICATIONS_PORT: usize = 0xFF56;
+/// 背景カラーパレット仕様・インデックス
+const HWREG_BCPS_BACKGROUND_COLOR_PALETTE_SPECIFICATION: usize = 0xFF68;
+/// 背景カラーパレットデータ
+const HWREG_BCPS_BACKGROUND_COLOR_PALETTE_DATA: usize = 0xFF69;
+/// OBJカラーパレット仕様・インデックス
+const HWREG_OCPS_OBJ_COLOR_PALETTE_SPECIFICATION: usize = 0xFF6A;
+/// OBJカラーパレットデータ
+const HWREG_OCPS_OBJ_COLOR_PALETTE_DATA: usize = 0xFF6B;
+/// オブジェクト優先度
+const HWREG_OPRI_OBJECT_PRIOROTY_MODE: usize = 0xFF6C;
+/// WRAMバンク
+const HWREG_SVBK_WRAM_BANK: usize = 0xFF70;
+/// チャンネル1,2のオーディオデジタル出力
+const HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12: usize = 0xFF76;
+/// チャンネル3,4のオーディオデジタル出力
+const HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34: usize = 0xFF77;
+/// 割り込み有効フラグ
+const HWREG_IE_INTTERUPT_ENABLE: usize = 0xFFFF;
 
 /// SM83エミュレータ
 pub struct SM83
