@@ -20,28 +20,67 @@ const HRAM_START_ADDRESS: usize = 0xFF80;
 /// Intterupt Enable Register
 const IE_START_ADDRESS: usize = 0xFFFF;
 
-const IOREG_NR10_CHANNEL1_SWEEP: usize = 0xFF10;
-const IOREG_NR11_CHANNEL1_LENGTH_TIMER_DURY_CYCLE: usize = 0xFF11;
-const IOREG_NR12_CHANNEL1_VOLUME_ENVELOPE: usize = 0xFF12;
-const IOREG_NR13_CHANNEL1_PERIOD_LOW: usize = 0xFF13;
-const IOREG_NR14_CHANNEL1_PERIOD_HIGH_CONTROL: usize = 0xFF14;
-const IOREG_NR21_CHANNEL2_LENGTH_TIMER_DURY_CYCLE: usize = 0xFF16;
-const IOREG_NR22_CHANNEL2_VOLUME_ENVELOPE: usize = 0xFF17;
-const IOREG_NR23_CHANNEL2_PERIOD_LOW: usize = 0xFF18;
-const IOREG_NR24_CHANNEL2_PERIOD_HIGH_CONTROL: usize = 0xFF19;
-const IOREG_NR30_CHANNEL3_DAC_ENABLE: usize = 0xFF1A;
-const IOREG_NR31_CHANNEL3_LENGTH_TIMER: usize = 0xFF1B;
-const IOREG_NR32_CHANNEL3_OUTPUT_LEVEL: usize = 0xFF1C;
-const IOREG_NR33_CHANNEL3_PERIOD_LOW: usize = 0xFF1D;
-const IOREG_NR33_CHANNEL3_PERIOD_HIGH_CONTROL: usize = 0xFF1E;
-const IOREG_NR41_CHANNEL4_LENGTH_TIMER: usize = 0xFF20;
-const IOREG_NR42_CHANNEL4_VOLUME_ENVELOPE: usize = 0xFF21;
-const IOREG_NR43_CHANNEL4_FREQUENCY_RANDOMNESS: usize = 0xFF22;
-const IOREG_NR44_CHANNEL4_CONTROL: usize = 0xFF23;
-const IOREG_NR51_MASTER_VOLUME_VIN_PANNING: usize = 0xFF24;
-const IOREG_NR51_SOUND_PANNING: usize = 0xFF25;
-const IOREG_NR52_AUDIO_MASTER_CONTROL: usize = 0xFF26;
-const IOREG_CHANNEL3_WAVE_PATTERN_RAM_START: usize = 0xFF30;
+// ハードウェアレジスタアドレス
+/// ジョイパッド
+const HWREG_P1_JOYPAD: usize = 0xFF00;
+/// シリアル通信データ
+const HWREG_SB_SERIAL_TRANSFER_DATA: usize = 0xFF01;
+/// シリアル通信制御
+const HWREG_SC_SERIAL_TRANSFER_CONTROL: usize = 0xFF02;
+/// 単調増加タイマー
+const HWREG_DIV_REGISTER: usize = 0xFF04;
+/// タイマーカウンタ
+const HWREG_TIMA_TIMER_COUNTER: usize = 0xFF05;
+/// タイマー剰余
+const HWREG_TMA_TIMER_MODULO: usize = 0xFF06;
+/// タイマー制御
+const HWREG_TAC_TIMER_CONTROL: usize = 0xFF07;
+/// 割り込みフラグ
+const HWREG_IF_INTERRUPT_FLAG: usize = 0xFF0F;
+/// チャンネル1スイープ
+const HWREG_NR10_CHANNEL1_SWEEP: usize = 0xFF10;
+/// チャンネル1長さタイマー・デューティ比
+const HWREG_NR11_CHANNEL1_LENGTH_TIMER_DURY_CYCLE: usize = 0xFF11;
+/// チャンネル1ボリューム・エンベロープ
+const HWREG_NR12_CHANNEL1_VOLUME_ENVELOPE: usize = 0xFF12;
+/// チャンネル1周期下位ビット
+const HWREG_NR13_CHANNEL1_PERIOD_LOW: usize = 0xFF13;
+/// チャンネル1周期上位ビット・制御ビット
+const HWREG_NR14_CHANNEL1_PERIOD_HIGH_CONTROL: usize = 0xFF14;
+/// チャンネル2長さタイマー・デューティ比
+const HWREG_NR21_CHANNEL2_LENGTH_TIMER_DURY_CYCLE: usize = 0xFF16;
+/// チャンネル2ボリューム・エンベロープ
+const HWREG_NR22_CHANNEL2_VOLUME_ENVELOPE: usize = 0xFF17;
+/// チャンネル2周期下位ビット
+const HWREG_NR23_CHANNEL2_PERIOD_LOW: usize = 0xFF18;
+/// チャンネル2周期上位ビット・制御ビット
+const HWREG_NR24_CHANNEL2_PERIOD_HIGH_CONTROL: usize = 0xFF19;
+/// チャンネル3DAC有効フラグ
+const HWREG_NR30_CHANNEL3_DAC_ENABLE: usize = 0xFF1A;
+/// チャンネル3長さタイマー
+const HWREG_NR31_CHANNEL3_LENGTH_TIMER: usize = 0xFF1B;
+/// チャンネル3出力レベル
+const HWREG_NR32_CHANNEL3_OUTPUT_LEVEL: usize = 0xFF1C;
+/// チャンネル3周期下位ビット
+const HWREG_NR33_CHANNEL3_PERIOD_LOW: usize = 0xFF1D;
+/// チャンネル3周期上位ビット・制御ビット
+const HWREG_NR33_CHANNEL3_PERIOD_HIGH_CONTROL: usize = 0xFF1E;
+/// チャンネル4長さタイマー
+const HWREG_NR41_CHANNEL4_LENGTH_TIMER: usize = 0xFF20;
+/// チャンネル4ボリューム・エンベロープ
+const HWREG_NR42_CHANNEL4_VOLUME_ENVELOPE: usize = 0xFF21;
+/// チャンネル4周波数・ランダム度
+const HWREG_NR43_CHANNEL4_FREQUENCY_RANDOMNESS: usize = 0xFF22;
+/// チャンネル4制御
+const HWREG_NR44_CHANNEL4_CONTROL: usize = 0xFF23;
+/// マスターボリューム・外部音声出力のパン
+const HWREG_NR51_MASTER_VOLUME_VIN_PANNING: usize = 0xFF24;
+/// 各チャンネルのパン
+const HWREG_NR51_SOUND_PANNING: usize = 0xFF25;
+/// 全体と各チャンネルのオーディオON/OFF
+const HWREG_NR52_AUDIO_MASTER_CONTROL: usize = 0xFF26;
+/// チャンネル3の波形RAM
+const HWREG_CHANNEL3_WAVE_PATTERN_RAM_START: usize = 0xFF30;
 
 /// SM83エミュレータ
 pub struct SM83
