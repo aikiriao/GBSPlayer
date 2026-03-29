@@ -88,6 +88,16 @@ pub enum SM83Oprand {
     R8AndR16Indirect { r8: SM83Register8, r16: SM83Register16 },
     CC { cc: SM83ConditionCode },
     CCAndA16 { cc: SM83ConditionCode, a16: u16 },
+    A16 { a16: u16 },
+    R8AndN8 { r8: SM83Register8, n8: u8 },
+    R8ToA8 { dst: u8, src: SM83Register8 },
+    R8ToR8Indirect { dst: SM83Register8, src: SM83Register8 },
+    R16AndE8 { r16: SM83Register16, e8: i8 },
+    R8ToA16 { dst: u16, src: SM83Register8 },
+    A8ToR8 { dst: SM83Register8, src: u8 },
+    R8IndirectToR8 { dst: SM83Register8, src: SM83Register8 },
+    R16E8IndirectToR16 { dst: SM83Register16, src_r16: SM83Register16, src_e8: i8 },
+    A16ToR8 { dst: SM83Register8, src: u16 },
 }
 
 /// SM83オペコード
@@ -139,6 +149,8 @@ pub enum SM83Opcode {
     OR { oprand: SM83Oprand },
     /// CP (ComPare)
     CP { oprand: SM83Oprand },
+    /// 無条件RET (Return from Subroutine)
+    RETNooprand,
     /// RET (Return from Subroutine)
     RET { oprand: SM83Oprand },
     /// POP (Pop from the Stack)
