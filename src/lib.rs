@@ -4,3 +4,4 @@ pub mod types;
 pub mod gbs_file;
 pub mod assembler;
 pub mod sm83;
+pub mod gbs_player;

@@ -1,14 +1,22 @@
 /// SM83レジスタ群
 #[derive(Debug, Clone)]
 pub struct SM83Registers {
-    /// AF（アキュムレータとフラグ）
-    pub af: u16,
-    /// BC（汎用レジスタ）
-    pub bc: u16,
-    /// DE（汎用レジスタ）
-    pub de: u16,
-    /// HL（汎用+メモリアクセスレジスタ）
-    pub hl: u16,
+    /// A（アキュムレータ）
+    pub a: u8,
+    /// F（フラグ）
+    pub f: u8,
+    /// B（汎用レジスタ）
+    pub b: u8,
+    /// C（汎用レジスタ）
+    pub c: u8,
+    /// D（汎用レジスタ）
+    pub d: u8,
+    /// E（汎用レジスタ）
+    pub e: u8,
+    /// H（汎用+メモリアクセスレジスタ）
+    pub h: u8,
+    /// L（汎用+メモリアクセスレジスタ）
+    pub l: u8,
     /// SP（スタックポインタ）
     pub sp: u16,
     /// PC（プログラムカウンタ）
