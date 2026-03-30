@@ -79,7 +79,6 @@ pub enum SM83ConditionCode {
 pub enum SM83Oprand {
     N16ToR16 { dst: SM83Register16, n16: u16 },
     R16ToA16 { a16: u16, src: SM83Register16 },
-    AToR16Indirect { dst: SM83Register16 },
     R16 { r16: SM83Register16 },
     R8 { r8: SM83Register8 },
     R16Indirect { r16: SM83Register16 },

@@ -32,8 +32,9 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
             create_opcode_with_length_check!(
                 rom,
                 SM83Opcode::LD {
-                    oprand: SM83Oprand::AToR16Indirect {
-                        dst: SM83Register16::BC
+                    oprand: SM83Oprand::R8ToR16Indirect {
+                        dst: SM83Register16::BC,
+                        src: SM83Register8::A,
                     }
                 },
                 1
@@ -184,8 +185,9 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
             create_opcode_with_length_check!(
                 rom,
                 SM83Opcode::LD {
-                    oprand: SM83Oprand::AToR16Indirect {
-                        dst: SM83Register16::DE
+                    oprand: SM83Oprand::R8ToR16Indirect {
+                        dst: SM83Register16::DE,
+                        src: SM83Register8::A,
                     }
                 },
                 1
@@ -344,8 +346,9 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
             create_opcode_with_length_check!(
                 rom,
                 SM83Opcode::LD {
-                    oprand: SM83Oprand::AToR16Indirect {
-                        dst: SM83Register16::HLincrement
+                    oprand: SM83Oprand::R8ToR16Indirect {
+                        dst: SM83Register16::HLincrement,
+                        src: SM83Register8::A,
                     }
                 },
                 1
@@ -507,8 +510,9 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
             create_opcode_with_length_check!(
                 rom,
                 SM83Opcode::LD {
-                    oprand: SM83Oprand::AToR16Indirect {
-                        dst: SM83Register16::HLdecrement
+                    oprand: SM83Oprand::R8ToR16Indirect {
+                        dst: SM83Register16::HLdecrement,
+                        src: SM83Register8::A,
                     }
                 },
                 1

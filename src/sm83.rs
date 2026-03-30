@@ -19,12 +19,12 @@ const EXTERNAL_RAM_START_ADDRESS: usize = 0xA000;
 const WRAM_BANK0_START_ADDRESS: usize = 0xC000;
 /// Work RAM Bank 1-7
 const WRAM_BANK1_START_ADDRESS: usize = 0xD000;
-/// 
+///
 const ECHO_RAM_START_ADDRESS: usize = 0xE000;
 /// Object Attribute Memory (OAM)
 const OAM_START_ADDRESS: usize = 0xFE00;
 const NOT_USABLE_START_ADDRESS: usize = 0xFEA0;
-/// 
+///
 const IOREG_START_ADDRESS: usize = 0xFF00;
 /// High RAM (HRAM)
 const HRAM_START_ADDRESS: usize = 0xFF80;
@@ -156,8 +156,7 @@ pub const HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34: usize = 0xFF77;
 pub const HWREG_IE_INTTERUPT_ENABLE: usize = 0xFFFF;
 
 /// SM83エミュレータ
-pub struct SM83
-{
+pub struct SM83 {
     /// レジスタ
     pub regs: SM83Registers,
     /// 64KBメモリ領域
@@ -284,10 +283,149 @@ impl SM83 {
                 // 何もしない
                 1
             }
-            _ => {
-                // TODO
-                1
+            SM83Opcode::LD { oprand } => self.execute_ld(oprand),
+            _ => panic!("Invalid opcode: {:?}", opcode),
+        }
+    }
+
+    /// 8bitレジスタ値の取得
+    fn get_r8(&self, r8: &SM83Register8) -> u8 {
+        match r8 {
+            SM83Register8::A => self.regs.a,
+            SM83Register8::B => self.regs.b,
+            SM83Register8::C => self.regs.c,
+            SM83Register8::D => self.regs.d,
+            SM83Register8::E => self.regs.e,
+            SM83Register8::H => self.regs.h,
+            SM83Register8::L => self.regs.l,
+        }
+    }
+
+    /// 8bitレジスタ値の設定
+    fn set_r8(&mut self, r8: &SM83Register8, value: u8) {
+        match r8 {
+            SM83Register8::A => {
+                self.regs.a = value;
+            }
+            SM83Register8::B => {
+                self.regs.b = value;
+            }
+            SM83Register8::C => {
+                self.regs.c = value;
+            }
+            SM83Register8::D => {
+                self.regs.d = value;
+            }
+            SM83Register8::E => {
+                self.regs.e = value;
+            }
+            SM83Register8::H => {
+                self.regs.h = value;
+            }
+            SM83Register8::L => {
+                self.regs.l = value;
             }
         }
+    }
+
+    /// 16bitレジスタ値の取得
+    fn get_r16(&self, r16: &SM83Register16) -> u16 {
+        match r16 {
+            SM83Register16::AF => ((self.regs.a as u16) << 8) | (self.regs.f as u16),
+            SM83Register16::BC => ((self.regs.b as u16) << 8) | (self.regs.c as u16),
+            SM83Register16::DE => ((self.regs.d as u16) << 8) | (self.regs.e as u16),
+            SM83Register16::HL | SM83Register16::HLincrement | SM83Register16::HLdecrement => {
+                ((self.regs.h as u16) << 8) | (self.regs.l as u16)
+            }
+            SM83Register16::SP => self.regs.sp,
+        }
+    }
+
+    /// 16bitレジスタ値の設定
+    fn set_r16(&mut self, r16: &SM83Register16, value: u16) {
+        let (high, low) = (((value >> 8) & 0xFF) as u8, ((value >> 0) & 0xFF) as u8);
+        match r16 {
+            SM83Register16::AF => {
+                self.regs.a = high;
+                self.regs.f = low;
+            }
+            SM83Register16::BC => {
+                self.regs.b = high;
+                self.regs.c = low;
+            }
+            SM83Register16::DE => {
+                self.regs.d = high;
+                self.regs.e = low;
+            }
+            SM83Register16::HL | SM83Register16::HLincrement | SM83Register16::HLdecrement => {
+                self.regs.h = high;
+                self.regs.l = low;
+            }
+            SM83Register16::SP => {
+                self.regs.sp = value;
+            }
+        }
+    }
+
+    /// LD命令の実行
+    fn execute_ld(&mut self, oprand: &SM83Oprand) -> u8 {
+        let cycle;
+
+        match oprand {
+            SM83Oprand::N16ToR16 { dst, n16 } => {
+                self.set_r16(dst, *n16);
+                cycle = 3;
+            }
+            SM83Oprand::R8ToR16Indirect { dst, src } => {
+                let address = self.get_r16(dst);
+                let value = self.get_r8(src);
+                self.write_ram_u8(address as usize, value);
+                match dst {
+                    SM83Register16::HLincrement => {
+                        let address = address.wrapping_add(1);
+                        self.set_r16(dst, address);
+                    }
+                    SM83Register16::HLdecrement => {
+                        let address = address.wrapping_sub(1);
+                        self.set_r16(dst, address);
+                    }
+                    _ => {}
+                }
+                cycle = 2;
+            }
+            SM83Oprand::N8ToR8 { dst, n8 } => {
+                self.set_r8(dst, *n8);
+                cycle = 2;
+            }
+            SM83Oprand::R16IndirectToR8 { dst, src } => {
+                let address = self.get_r16(src);
+                let value = self.read_ram_u8(address as usize);
+                self.set_r8(dst, value);
+                cycle = 2;
+            }
+            SM83Oprand::N8ToR16Indirect { dst, n8 } => {
+                let address = self.get_r16(dst);
+                self.write_ram_u8(address as usize, *n8);
+                cycle = 2;
+            }
+            SM83Oprand::R8ToR8 { dst, src } => {
+                let value = self.get_r8(src);
+                self.set_r8(dst, value);
+                cycle = 1;
+            }
+            SM83Oprand::R8ToA16 { dst, src } => {
+                let value = self.get_r8(src);
+                self.write_ram_u8(*dst as usize, value);
+                cycle = 3;
+            }
+            SM83Oprand::A16ToR8 { dst, src } => {
+                let value = self.read_ram_u8(*src as usize);
+                self.set_r8(dst, value);
+                cycle = 3;
+            }
+            _ => unreachable!("Invalid oprand!"),
+        }
+
+        cycle
     }
 }

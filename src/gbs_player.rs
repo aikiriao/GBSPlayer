@@ -53,7 +53,7 @@ impl GBSPlayer {
             let (opcode, _) = self.cpu.execute_step();
             match opcode {
                 SM83Opcode::RETNooprand => break,
-                // TODO: もしかしたら条件付きRETがくるかも...
+                // TODO: もしかしたら条件付きRETがくるかも... -> サイクル数で分岐発生を判定できる
                 _ => {}
             }
         }
