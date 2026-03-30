@@ -44,9 +44,9 @@ impl GBSPlayer {
 
         // タイマー初期化
         self.cpu
-            .write_ram_u8(HWREG_TMA_TIMER_MODULO, self.gbs_header.timer_modulo);
+            .write_mem_u8(HWREG_TMA_TIMER_MODULO, self.gbs_header.timer_modulo);
         self.cpu
-            .write_ram_u8(HWREG_TAC_TIMER_CONTROL, self.gbs_header.timer_control);
+            .write_mem_u8(HWREG_TAC_TIMER_CONTROL, self.gbs_header.timer_control);
 
         // RETが実行されるまで実行
         loop {

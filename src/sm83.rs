@@ -242,8 +242,8 @@ impl SM83 {
         (opcode, cycle)
     }
 
-    /// RAMへの書き込み
-    pub fn write_ram_u8(&mut self, address: usize, value: u8) {
+    /// 8bitメモリ書き込み
+    pub fn write_mem_u8(&mut self, address: usize, value: u8) {
         // ハードウェアレジスタへの書き込み
         if (address >= HWREG_P1_JOYPAD) && (address <= HWREG_IE_INTTERUPT_ENABLE) {
             match address {
@@ -254,8 +254,8 @@ impl SM83 {
         trace!("W: 0x{:04X} <- {:02X}", address, value);
     }
 
-    /// RAMからの読み込み
-    pub fn read_ram_u8(&mut self, address: usize) -> u8 {
+    /// 8bitメモリ読み込み
+    pub fn read_mem_u8(&mut self, address: usize) -> u8 {
         trace!("R: 0x{:04X} -> {:02X}", address, self.mem[address]);
         // ハードウェアレジスタからの読み込み
         if (address >= HWREG_P1_JOYPAD) && (address <= HWREG_IE_INTTERUPT_ENABLE) {
@@ -266,8 +266,8 @@ impl SM83 {
         self.mem[address]
     }
 
-    /// RAMからの読み込み
-    fn read_ram_u16(&self, address: usize) -> u16 {
+    /// 16bitメモリ読み込み
+    fn read_mem_u16(&self, address: usize) -> u16 {
         trace!(
             "R16: 0x{:04X} -> {:04X}",
             address,
@@ -380,7 +380,7 @@ impl SM83 {
             SM83Oprand::R8ToR16Indirect { dst, src } => {
                 let address = self.get_r16(dst);
                 let value = self.get_r8(src);
-                self.write_ram_u8(address as usize, value);
+                self.write_mem_u8(address as usize, value);
                 match dst {
                     SM83Register16::HLincrement => {
                         let address = address.wrapping_add(1);
@@ -400,13 +400,13 @@ impl SM83 {
             }
             SM83Oprand::R16IndirectToR8 { dst, src } => {
                 let address = self.get_r16(src);
-                let value = self.read_ram_u8(address as usize);
+                let value = self.read_mem_u8(address as usize);
                 self.set_r8(dst, value);
                 cycle = 2;
             }
             SM83Oprand::N8ToR16Indirect { dst, n8 } => {
                 let address = self.get_r16(dst);
-                self.write_ram_u8(address as usize, *n8);
+                self.write_mem_u8(address as usize, *n8);
                 cycle = 2;
             }
             SM83Oprand::R8ToR8 { dst, src } => {
@@ -416,11 +416,11 @@ impl SM83 {
             }
             SM83Oprand::R8ToA16 { dst, src } => {
                 let value = self.get_r8(src);
-                self.write_ram_u8(*dst as usize, value);
+                self.write_mem_u8(*dst as usize, value);
                 cycle = 3;
             }
             SM83Oprand::A16ToR8 { dst, src } => {
-                let value = self.read_ram_u8(*src as usize);
+                let value = self.read_mem_u8(*src as usize);
                 self.set_r8(dst, value);
                 cycle = 3;
             }
