@@ -266,6 +266,13 @@ impl SM83 {
         self.mem[address]
     }
 
+    /// 16bitメモリ書き込み
+    fn write_mem_u16(&self, address: usize, value: u16) {
+        trace!("W16: 0x{:04X} <- {:04X}", address, value,);
+        self.mem[address + 0] = ((value >> 0) & 0xFF) as u8;
+        self.mem[address + 1] = ((value >> 8) & 0xFF) as u8;
+    }
+
     /// 16bitメモリ読み込み
     fn read_mem_u16(&self, address: usize) -> u16 {
         trace!(
@@ -306,6 +313,57 @@ impl SM83 {
                     _ => unreachable!("Invalid oprand!"),
                 }
                 cycle
+            }
+            SM83Opcode::DEC { oprand } => {
+                let cycle;
+                match oprand {
+                    SM83Oprand::R8 { r8 } => {
+                        let value = self.get_r8(r8);
+                        self.set_r8(r8, value.wrapping_sub(1));
+                        cycle = 1;
+                    }
+                    SM83Oprand::R16 { r16 } => {
+                        let value = self.get_r16(r16);
+                        self.set_r16(r16, value.wrapping_sub(1));
+                        cycle = 2;
+                    }
+                    SM83Oprand::R16Indirect { r16 } => {
+                        let address = self.get_r16(r16) as usize;
+                        let value = self.read_mem_u8(address);
+                        self.write_mem_u8(address, value.wrapping_sub(1));
+                        cycle = 3;
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                cycle
+            }
+            SM83Opcode::RLCA => {
+                let msb = self.regs.a & 0x80;
+                self.set_flag(FLAG_C, msb != 0);
+                self.regs.a = (self.regs.a << 1) | (msb >> 7);
+                1
+            }
+            // TODO: ADD
+            SM83Opcode::RRCA => {
+                let lsb = self.regs.a & 0x01;
+                self.set_flag(FLAG_C, lsb != 0);
+                self.regs.a = (self.regs.a >> 1) | (lsb << 7);
+                1
+            }
+            SM83Opcode::RLA => {
+                let msb = self.regs.a & 0x80;
+                let lsb = if self.get_flag(FLAG_C) { 0x01 } else { 0x00 };
+                self.regs.a = (self.regs.a << 1) | lsb;
+                self.set_flag(FLAG_C, msb != 0);
+                1
+            }
+            // TODO: JR
+            SM83Opcode::RRA => {
+                let lsb = self.regs.a & 0x01;
+                let msb = if self.get_flag(FLAG_C) { 0x80 } else { 0x00 };
+                self.regs.a = (self.regs.a >> 1) | msb;
+                self.set_flag(FLAG_C, lsb != 0);
+                1
             }
             _ => panic!("Invalid opcode: {:?}", opcode),
         }
@@ -425,12 +483,12 @@ impl SM83 {
                 let address = self.get_r16(src);
                 let value = self.read_mem_u8(address as usize);
                 self.set_r8(dst, value);
-                match dst {
+                match src {
                     SM83Register16::HLincrement => {
-                        self.set_r16(dst, address.wrapping_add(1));
+                        self.set_r16(src, address.wrapping_add(1));
                     }
                     SM83Register16::HLdecrement => {
-                        self.set_r16(dst, address.wrapping_sub(1));
+                        self.set_r16(src, address.wrapping_sub(1));
                     }
                     _ => {}
                 }
@@ -455,6 +513,11 @@ impl SM83 {
                 let value = self.read_mem_u8(*src as usize);
                 self.set_r8(dst, value);
                 cycle = 4;
+            }
+            SM83Oprand::R16ToA16 { a16, src } => {
+                let value = self.get_r16(dst);
+                self.write_mem_u16(a16 as usize, value);
+                cycle = 5;
             }
             _ => unreachable!("Invalid oprand!"),
         }
