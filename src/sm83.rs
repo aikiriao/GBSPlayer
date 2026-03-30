@@ -343,7 +343,8 @@ impl SM83 {
 
     /// 16bitレジスタ値の設定
     fn set_r16(&mut self, r16: &SM83Register16, value: u16) {
-        let (high, low) = (((value >> 8) & 0xFF) as u8, ((value >> 0) & 0xFF) as u8);
+        let high = ((value >> 8) & 0xFF) as u8;
+        let low = ((value >> 0) & 0xFF) as u8;
         match r16 {
             SM83Register16::AF => {
                 self.regs.a = high;
