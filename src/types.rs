@@ -71,7 +71,7 @@ pub enum SM83ConditionCode {
     /// C is set
     C,
     /// C is not set
-    NC
+    NC,
 }
 
 /// SM83オペランド

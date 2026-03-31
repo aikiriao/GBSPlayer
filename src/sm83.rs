@@ -207,6 +207,18 @@ impl SM83 {
         }
     }
 
+    /// スタックにデータをPUSH
+    fn push_stack(&mut self, value: u8) {
+        self.write_mem_u8(self.regs.sp as usize, value);
+        self.regs.sp = self.regs.sp.wrapping_sub(1);
+    }
+
+    /// スタックからデータをPOP
+    fn pop_stack(&mut self) -> u8 {
+        self.regs.sp = self.regs.sp.wrapping_add(1);
+        self.read_mem_u8(self.regs.sp as usize)
+    }
+
     /// フラグリセット
     pub fn reset_flags(&mut self) {
         self.set_flag(FLAG_Z, true);
@@ -497,6 +509,27 @@ impl SM83 {
                 cycle
             }
             // TODO: CP
+            SM83Opcode::RETNooprand => {
+                let low = self.pop_stack();
+                let high = self.pop_stack();
+                self.regs.pc = ((high as u16) << 8) | (low as u16);
+                4
+            }
+            SM83Opcode::RET { oprand } => {
+                match oprand {
+                    SM83Oprand::CC { cc } => {
+                        if self.test_condition_code(cc) {
+                            let low = self.pop_stack();
+                            let high = self.pop_stack();
+                            self.regs.pc = ((high as u16) << 8) | (low as u16);
+                            5
+                        } else {
+                            2
+                        }
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+            }
             _ => panic!("Invalid opcode: {:?}", opcode),
         }
     }
