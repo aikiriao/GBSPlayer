@@ -197,6 +197,16 @@ impl SM83 {
         };
     }
 
+    /// 条件コードの成立を判定
+    fn test_condition_code(&self, cc: &SM83ConditionCode) -> bool {
+        match cc {
+            SM83ConditionCode::Z => self.test_flag(FLAG_Z),
+            SM83ConditionCode::NZ => !self.test_flag(FLAG_Z),
+            SM83ConditionCode::C => self.test_flag(FLAG_C),
+            SM83ConditionCode::NC => !self.test_flag(FLAG_C),
+        }
+    }
+
     /// フラグリセット
     pub fn reset_flags(&mut self) {
         self.set_flag(FLAG_Z, true);
@@ -267,7 +277,7 @@ impl SM83 {
     }
 
     /// 16bitメモリ書き込み
-    fn write_mem_u16(&self, address: usize, value: u16) {
+    fn write_mem_u16(&mut self, address: usize, value: u16) {
         trace!("W16: 0x{:04X} <- {:04X}", address, value,);
         self.mem[address + 0] = ((value >> 0) & 0xFF) as u8;
         self.mem[address + 1] = ((value >> 8) & 0xFF) as u8;
@@ -352,15 +362,31 @@ impl SM83 {
             }
             SM83Opcode::RLA => {
                 let msb = self.regs.a & 0x80;
-                let lsb = if self.get_flag(FLAG_C) { 0x01 } else { 0x00 };
+                let lsb = if self.test_flag(FLAG_C) { 0x01 } else { 0x00 };
                 self.regs.a = (self.regs.a << 1) | lsb;
                 self.set_flag(FLAG_C, msb != 0);
                 1
             }
-            // TODO: JR
+            SM83Opcode::JR { oprand } => {
+                match oprand {
+                    SM83Oprand::E8 { e8 } => {
+                        self.regs.pc = (self.regs.pc as i32 + *e8 as i32) as u16;
+                        3
+                    }
+                    SM83Oprand::CCAndE8 { cc, e8 } => {
+                        if self.test_condition_code(cc) {
+                            self.regs.pc = (self.regs.pc as i32 + *e8 as i32) as u16;
+                            3
+                        } else {
+                            2
+                        }
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+            }
             SM83Opcode::RRA => {
                 let lsb = self.regs.a & 0x01;
-                let msb = if self.get_flag(FLAG_C) { 0x80 } else { 0x00 };
+                let msb = if self.test_flag(FLAG_C) { 0x80 } else { 0x00 };
                 self.regs.a = (self.regs.a >> 1) | msb;
                 self.set_flag(FLAG_C, lsb != 0);
                 1
@@ -515,8 +541,8 @@ impl SM83 {
                 cycle = 4;
             }
             SM83Oprand::R16ToA16 { a16, src } => {
-                let value = self.get_r16(dst);
-                self.write_mem_u16(a16 as usize, value);
+                let value = self.get_r16(src);
+                self.write_mem_u16(*a16 as usize, value);
                 cycle = 5;
             }
             _ => unreachable!("Invalid oprand!"),
