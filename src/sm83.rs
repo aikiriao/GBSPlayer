@@ -161,6 +161,8 @@ pub struct SM83 {
     pub regs: SM83Registers,
     /// 64KBメモリ領域
     pub mem: [u8; 65536],
+    /// IMEフラグ
+    pub ime_flag: bool,
 }
 
 impl SM83 {
@@ -180,6 +182,7 @@ impl SM83 {
                 pc: 0,
             },
             mem: [0; 65536],
+            ime_flag: false,
         }
     }
 
@@ -602,9 +605,15 @@ impl SM83 {
                 }
                 _ => unreachable!("Invalid oprand!"),
             },
-            //
-            // TODO: DI
-            // TODO: EI
+            SM83Opcode::DI => {
+                self.ime_flag = false;
+                1
+            }
+            SM83Opcode::EI => {
+                // NOTE: この命令実行後に有効になる
+                self.ime_flag = true;
+                1
+            }
             _ => panic!("Invalid opcode: {:?}", opcode),
         }
     }
@@ -761,7 +770,7 @@ impl SM83 {
             }
             SM83Oprand::R16E8IndirectToR16 { dst, src_r16, src_e8 } => {
                 let offset = self.get_r16(src_r16);
-                let value = (offset as i32 + *src_e8 as i32) as usize;
+                let value = (offset as i32 + *src_e8 as i32) as u16;
                 self.set_r16(dst, value);
                 self.set_flag(FLAG_Z, false);
                 self.set_flag(FLAG_N, false);
