@@ -379,23 +379,21 @@ impl SM83 {
                 self.set_flag(FLAG_C, msb != 0);
                 1
             }
-            SM83Opcode::JR { oprand } => {
-                match oprand {
-                    SM83Oprand::E8 { e8 } => {
+            SM83Opcode::JR { oprand } => match oprand {
+                SM83Oprand::E8 { e8 } => {
+                    self.regs.pc = (self.regs.pc as i32 + *e8 as i32) as u16;
+                    3
+                }
+                SM83Oprand::CCAndE8 { cc, e8 } => {
+                    if self.test_condition_code(cc) {
                         self.regs.pc = (self.regs.pc as i32 + *e8 as i32) as u16;
                         3
+                    } else {
+                        2
                     }
-                    SM83Oprand::CCAndE8 { cc, e8 } => {
-                        if self.test_condition_code(cc) {
-                            self.regs.pc = (self.regs.pc as i32 + *e8 as i32) as u16;
-                            3
-                        } else {
-                            2
-                        }
-                    }
-                    _ => unreachable!("Invalid oprand!"),
                 }
-            }
+                _ => unreachable!("Invalid oprand!"),
+            },
             SM83Opcode::RRA => {
                 let lsb = self.regs.a & 0x01;
                 let msb = if self.test_flag(FLAG_C) { 0x80 } else { 0x00 };
@@ -515,21 +513,19 @@ impl SM83 {
                 self.regs.pc = ((high as u16) << 8) | (low as u16);
                 4
             }
-            SM83Opcode::RET { oprand } => {
-                match oprand {
-                    SM83Oprand::CC { cc } => {
-                        if self.test_condition_code(cc) {
-                            let low = self.pop_stack();
-                            let high = self.pop_stack();
-                            self.regs.pc = ((high as u16) << 8) | (low as u16);
-                            5
-                        } else {
-                            2
-                        }
+            SM83Opcode::RET { oprand } => match oprand {
+                SM83Oprand::CC { cc } => {
+                    if self.test_condition_code(cc) {
+                        let low = self.pop_stack();
+                        let high = self.pop_stack();
+                        self.regs.pc = ((high as u16) << 8) | (low as u16);
+                        5
+                    } else {
+                        2
                     }
-                    _ => unreachable!("Invalid oprand!"),
                 }
-            }
+                _ => unreachable!("Invalid oprand!"),
+            },
             SM83Opcode::POP { oprand } => {
                 match oprand {
                     SM83Oprand::R16 { r16 } => {
@@ -552,6 +548,48 @@ impl SM83 {
                 }
                 4
             }
+            SM83Opcode::RST { vec } => {
+                self.push_stack(((self.regs.pc >> 8) & 0xFF) as u8);
+                self.push_stack(((self.regs.pc >> 0) & 0xFF) as u8);
+                self.regs.pc = *vec as u16;
+                4
+            }
+            SM83Opcode::JP { oprand } => match oprand {
+                SM83Oprand::CCAndA16 { cc, a16 } => {
+                    if self.test_condition_code(cc) {
+                        self.regs.pc = *a16;
+                        4
+                    } else {
+                        3
+                    }
+                }
+                SM83Oprand::A16 { a16 } => {
+                    self.regs.pc = *a16;
+                    4
+                }
+                _ => unreachable!("Invalid oprand!"),
+            },
+            SM83Opcode::CALL { oprand } => match oprand {
+                SM83Oprand::CCAndA16 { cc, a16 } => {
+                    if self.test_condition_code(cc) {
+                        self.push_stack(((self.regs.pc >> 8) & 0xFF) as u8);
+                        self.push_stack(((self.regs.pc >> 0) & 0xFF) as u8);
+                        self.regs.pc = *a16;
+                        6
+                    } else {
+                        3
+                    }
+                }
+                SM83Oprand::A16 { a16 } => {
+                    self.push_stack(((self.regs.pc >> 8) & 0xFF) as u8);
+                    self.push_stack(((self.regs.pc >> 0) & 0xFF) as u8);
+                    6
+                }
+                _ => unreachable!("Invalid oprand!"),
+            },
+            // TODO: LDH
+            // TODO: DI
+            // TODO: EI
             _ => panic!("Invalid opcode: {:?}", opcode),
         }
     }
