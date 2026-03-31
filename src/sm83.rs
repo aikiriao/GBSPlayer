@@ -598,9 +598,9 @@ impl SM83 {
                     3
                 }
                 SM83Oprand::R8IndirectToR8 { dst, src } => {
-                    let value = self.get_r8(src);
-                    let address = HWREG_START_ADDRESS as usize + self.get_r8(dst) as usize;
-                    self.write_mem_u8(address, value);
+                    let address = HWREG_START_ADDRESS as usize + self.get_r8(src) as usize;
+                    let value = self.read_mem_u8(address);
+                    self.set_r8(dst, value);
                     2
                 }
                 _ => unreachable!("Invalid oprand!"),
