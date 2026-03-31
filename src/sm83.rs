@@ -530,6 +530,28 @@ impl SM83 {
                     _ => unreachable!("Invalid oprand!"),
                 }
             }
+            SM83Opcode::POP { oprand } => {
+                match oprand {
+                    SM83Oprand::R16 { r16 } => {
+                        let low = self.pop_stack();
+                        let high = self.pop_stack();
+                        self.set_r16(r16, ((high as u16) << 8) | (low as u16));
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                3
+            }
+            SM83Opcode::PUSH { oprand } => {
+                match oprand {
+                    SM83Oprand::R16 { r16 } => {
+                        let value = self.get_r16(r16);
+                        self.push_stack(((value >> 8) & 0xFF) as u8);
+                        self.push_stack(((value >> 0) & 0xFF) as u8);
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                4
+            }
             _ => panic!("Invalid opcode: {:?}", opcode),
         }
     }
