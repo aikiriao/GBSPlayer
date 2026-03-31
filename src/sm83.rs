@@ -24,8 +24,8 @@ const ECHO_RAM_START_ADDRESS: usize = 0xE000;
 /// Object Attribute Memory (OAM)
 const OAM_START_ADDRESS: usize = 0xFE00;
 const NOT_USABLE_START_ADDRESS: usize = 0xFEA0;
-///
-const IOREG_START_ADDRESS: usize = 0xFF00;
+/// ハードウェアレジスタの開始アドレス
+const HWREG_START_ADDRESS: usize = 0xFF00;
 /// High RAM (HRAM)
 const HRAM_START_ADDRESS: usize = 0xFF80;
 /// Intterupt Enable Register
@@ -587,7 +587,22 @@ impl SM83 {
                 }
                 _ => unreachable!("Invalid oprand!"),
             },
-            // TODO: LDH
+            SM83Opcode::LDH { oprand } => match oprand {
+                SM83Oprand::R8ToA8 { dst, src } => {
+                    let value = self.get_r8(src);
+                    let address = HWREG_START_ADDRESS as usize + *dst as usize;
+                    self.write_mem_u8(address, value);
+                    3
+                }
+                SM83Oprand::R8IndirectToR8 { dst, src } => {
+                    let value = self.get_r8(src);
+                    let address = HWREG_START_ADDRESS as usize + self.get_r8(dst) as usize;
+                    self.write_mem_u8(address, value);
+                    2
+                }
+                _ => unreachable!("Invalid oprand!"),
+            },
+            //
             // TODO: DI
             // TODO: EI
             _ => panic!("Invalid opcode: {:?}", opcode),
