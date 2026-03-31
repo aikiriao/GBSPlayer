@@ -759,6 +759,18 @@ impl SM83 {
                 self.write_mem_u16(*a16 as usize, value);
                 cycle = 5;
             }
+            SM83Oprand::R16E8IndirectToR16 { dst, src_r16, src_e8 } => {
+                let offset = self.get_r16(src_r16);
+                let value = (offset as i32 + *src_e8 as i32) as usize;
+                self.set_r16(dst, value);
+                self.set_flag(FLAG_Z, false);
+                self.set_flag(FLAG_N, false);
+                // FIXME: 加算結果に依存してH,Cをセット
+                // https://stackoverflow.com/questions/5159603/gbz80-how-does-ld-hl-spe-affect-h-and-c-flags
+                // self.set_flag(FLAG_H, (value & 0x08) != 0);
+                // self.set_flag(FLAG_C, (value & 0x80) != 0);
+                cycle = 3;
+            }
             _ => unreachable!("Invalid oprand!"),
         }
 
