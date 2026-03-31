@@ -4,7 +4,7 @@ use log::{trace, warn};
 
 /// ゼロフラグ
 const FLAG_Z: u8 = 1 << 7;
-/// BCDフラグ
+/// ネガティブ(BCD)フラグ
 const FLAG_N: u8 = 1 << 6;
 /// ハーフキャリーフラグ
 const FLAG_H: u8 = 1 << 5;
@@ -391,6 +391,112 @@ impl SM83 {
                 self.set_flag(FLAG_C, lsb != 0);
                 1
             }
+            // TODO: DAA
+            SM83Opcode::CPL => {
+                self.regs.a = !self.regs.a;
+                self.set_flag(FLAG_N, true);
+                self.set_flag(FLAG_H, true);
+                1
+            }
+            SM83Opcode::SCF => {
+                self.set_flag(FLAG_N, false);
+                self.set_flag(FLAG_H, false);
+                self.set_flag(FLAG_C, true);
+                1
+            }
+            SM83Opcode::CCF => {
+                self.set_flag(FLAG_N, false);
+                self.set_flag(FLAG_H, false);
+                self.set_flag(FLAG_C, !self.test_flag(FLAG_C));
+                1
+            }
+            SM83Opcode::HALT => {
+                warn!("execute HALT instruction");
+                // TODO: 低電力モードに移行？
+                1
+            }
+            // TODO: ADC
+            // TODO: SUB
+            // TODO: SBC
+            SM83Opcode::AND { oprand } => {
+                let cycle;
+                let ret;
+                match oprand {
+                    SM83Oprand::R8AndR8 { r1, r2 } => {
+                        ret = self.get_r8(r1) & self.get_r8(r2);
+                        cycle = 1;
+                    }
+                    SM83Oprand::R8AndR16Indirect { r8, r16 } => {
+                        let address = self.get_r16(r16);
+                        ret = self.get_r8(r8) & self.read_mem_u8(address as usize);
+                        cycle = 2;
+                    }
+                    SM83Oprand::R8AndN8 { r8, n8 } => {
+                        ret = self.get_r8(r8) & *n8;
+                        cycle = 2;
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                self.regs.a = ret;
+                self.set_flag(FLAG_Z, ret == 0);
+                self.set_flag(FLAG_N, false);
+                self.set_flag(FLAG_H, true);
+                self.set_flag(FLAG_C, false);
+                cycle
+            }
+            SM83Opcode::XOR { oprand } => {
+                let cycle;
+                let ret;
+                match oprand {
+                    SM83Oprand::R8AndR8 { r1, r2 } => {
+                        ret = self.get_r8(r1) ^ self.get_r8(r2);
+                        cycle = 1;
+                    }
+                    SM83Oprand::R8AndR16Indirect { r8, r16 } => {
+                        let address = self.get_r16(r16);
+                        ret = self.get_r8(r8) ^ self.read_mem_u8(address as usize);
+                        cycle = 2;
+                    }
+                    SM83Oprand::R8AndN8 { r8, n8 } => {
+                        ret = self.get_r8(r8) ^ *n8;
+                        cycle = 2;
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                self.regs.a = ret;
+                self.set_flag(FLAG_Z, ret == 0);
+                self.set_flag(FLAG_N, false);
+                self.set_flag(FLAG_H, false);
+                self.set_flag(FLAG_C, false);
+                cycle
+            }
+            SM83Opcode::OR { oprand } => {
+                let cycle;
+                let ret;
+                match oprand {
+                    SM83Oprand::R8AndR8 { r1, r2 } => {
+                        ret = self.get_r8(r1) | self.get_r8(r2);
+                        cycle = 1;
+                    }
+                    SM83Oprand::R8AndR16Indirect { r8, r16 } => {
+                        let address = self.get_r16(r16);
+                        ret = self.get_r8(r8) | self.read_mem_u8(address as usize);
+                        cycle = 2;
+                    }
+                    SM83Oprand::R8AndN8 { r8, n8 } => {
+                        ret = self.get_r8(r8) | *n8;
+                        cycle = 2;
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                self.regs.a = ret;
+                self.set_flag(FLAG_Z, ret == 0);
+                self.set_flag(FLAG_N, false);
+                self.set_flag(FLAG_H, false);
+                self.set_flag(FLAG_C, false);
+                cycle
+            }
+            // TODO: CP
             _ => panic!("Invalid opcode: {:?}", opcode),
         }
     }
