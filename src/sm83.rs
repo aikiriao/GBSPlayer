@@ -845,6 +845,67 @@ impl SM83 {
                 self.set_flag(FLAG_C, lsb != 0);
                 cycle
             }
+            SM83Opcode::BIT { u3, oprand } => {
+                let cycle;
+                let ret;
+                let test_bit = 1 << u3;
+                match oprand {
+                    SM83Oprand::R8 { r8 } => {
+                        let reg = self.get_r8(r8);
+                        ret = reg & test_bit;
+                        cycle = 2;
+                    }
+                    SM83Oprand::R16Indirect { r16 } => {
+                        let address = self.get_r16(r16);
+                        let value = self.read_mem_u8(address as usize);
+                        ret = value & test_bit;
+                        cycle = 3;
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                self.set_flag(FLAG_Z, ret == 0);
+                self.set_flag(FLAG_N, false);
+                self.set_flag(FLAG_H, true);
+                cycle
+            }
+            SM83Opcode::RES { u3, oprand } => {
+                let cycle;
+                let mask = !(1 << u3);
+                match oprand {
+                    SM83Oprand::R8 { r8 } => {
+                        let reg = self.get_r8(r8);
+                        self.set_r8(r8, reg & mask);
+                        cycle = 2;
+                    }
+                    SM83Oprand::R16Indirect { r16 } => {
+                        let address = self.get_r16(r16) as usize;
+                        let value = self.read_mem_u8(address);
+                        self.write_mem_u8(address, value & mask);
+                        cycle = 4;
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                cycle
+            }
+            SM83Opcode::SET { u3, oprand } => {
+                let cycle;
+                let bit = 1 << u3;
+                match oprand {
+                    SM83Oprand::R8 { r8 } => {
+                        let reg = self.get_r8(r8);
+                        self.set_r8(r8, reg | bit);
+                        cycle = 2;
+                    }
+                    SM83Oprand::R16Indirect { r16 } => {
+                        let address = self.get_r16(r16) as usize;
+                        let value = self.read_mem_u8(address);
+                        self.write_mem_u8(address, value | bit);
+                        cycle = 4;
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                cycle
+            }
             _ => panic!("Invalid opcode: {:?}", opcode),
         }
     }
