@@ -31,6 +31,16 @@ const HRAM_START_ADDRESS: usize = 0xFF80;
 /// Intterupt Enable Register
 const IE_START_ADDRESS: usize = 0xFFFF;
 
+// MBC(Memory Bank Controller)レジスタアドレスの範囲
+/// MBC1 RAM gate register
+pub const RAMG_START_ADDRESS: usize = 0x0000;
+/// BANK1 MBC1 bank register 1
+pub const BANK1_START_ADDRESS: usize = 0x2000;
+/// BANK2 MBC1 bank register 2
+pub const BANK2_START_ADDRESS: usize = 0x4000;
+/// MBC1 mode register
+pub const MODE_START_ADDRESS: usize = 0x6000;
+
 // ハードウェアレジスタアドレス
 /// ジョイパッド
 pub const HWREG_P1_JOYPAD: usize = 0xFF00;
@@ -161,6 +171,16 @@ pub struct SM83 {
     pub regs: SM83Registers,
     /// 64KBメモリ領域
     pub mem: [u8; 65536],
+    /// RAMゲートレジスタ
+    ramg: u8,
+    /// MBC1バンクレジスタ1
+    mbc1_bank1: u8,
+    /// MBC1バンクレジスタ2
+    mbc1_bank2: u8,
+    /// MBC1モードレジスタ
+    mbc1_mode: u8,
+    /// ROMバンク番号
+    rom_bank_number: u8,
     /// IMEフラグ
     pub ime_flag: bool,
 }
@@ -181,6 +201,11 @@ impl SM83 {
                 sp: 0,
                 pc: 0,
             },
+            ramg: 0xA,
+            mbc1_bank1: 1,
+            mbc1_bank2: 0,
+            mbc1_mode: 0,
+            rom_bank_number: 0,
             mem: [0; 65536],
             ime_flag: false,
         }
@@ -252,6 +277,13 @@ impl SM83 {
         self.mem[WRAM_BANK1_START_ADDRESS..(WRAM_BANK1_START_ADDRESS + 0x1000)].fill(0);
     }
 
+    /// ROMバンクの切り替え(MBC1)
+    fn switch_rom_bank_mbc1(&mut self) {
+        // バンク番号の切り替え
+        self.rom_bank_number = (self.mbc1_bank2 << 5) | (self.mbc1_bank1);
+        // TODO: コールバックでユーザーに切り替えさせるのがいいかも
+    }
+
     /// ステップ実行
     pub fn execute_step(&mut self) -> (SM83Opcode, u8) {
         let (opcode, len) = parse_opcode(&self.mem[(self.regs.pc as usize)..]);
@@ -269,13 +301,41 @@ impl SM83 {
 
     /// 8bitメモリ書き込み
     pub fn write_mem_u8(&mut self, address: usize, value: u8) {
-        // ハードウェアレジスタへの書き込み
-        if (address >= HWREG_P1_JOYPAD) && (address <= HWREG_IE_INTTERUPT_ENABLE) {
+        if (address >= RAMG_START_ADDRESS) && (address < BANK1_START_ADDRESS) {
+            self.ramg = value & 0xF;
+        } else if (address >= BANK1_START_ADDRESS) && (address < BANK2_START_ADDRESS) {
+            self.mbc1_bank1 = value & 0x1F;
+            // 0は強制的に1として扱われる
+            if self.mbc1_bank1 == 0 {
+                self.mbc1_bank1 = 1;
+            }
+            // TODO: ROMバンクスイッチ
+        } else if (address >= BANK2_START_ADDRESS) && (address < MODE_START_ADDRESS) {
+            self.mbc1_bank2 = value & 0x3;
+            // TODO: ROMバンクスイッチ
+        } else if (address >= MODE_START_ADDRESS) && (address < VRAM_START_ADDRESS) {
+            self.mbc1_mode = value & 0x1;
+            // TODO: ROM/RAMバンクスイッチ
+        } else if (address >= EXTERNAL_RAM_START_ADDRESS) && (address < WRAM_BANK0_START_ADDRESS) {
+            // 外部RAM
+            // RAMGが特定の値のみ有効
+            if self.ramg == 0xA {
+                self.mem[address] = value;
+            }
+        } else if (address >=  WRAM_BANK0_START_ADDRESS) && (address < ECHO_RAM_START_ADDRESS) {
+            // RAM
+            self.mem[address] = value;
+        } else if (address >= HWREG_P1_JOYPAD) && (address < HRAM_START_ADDRESS) {
+            // ハードウェアレジスタへの書き込み
             match address {
                 _ => todo!("unimplemented!"),
             }
+            // 書き込み値は保持しておく
+            self.mem[address] = value;
+        } else if (address >= HRAM_START_ADDRESS) {
+            // HRAM
+            self.mem[address] = value;
         }
-        self.mem[address] = value;
         trace!("W: 0x{:04X} <- {:02X}", address, value);
     }
 
