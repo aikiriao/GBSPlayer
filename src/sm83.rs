@@ -476,6 +476,19 @@ impl SM83 {
                 self.set_flag(FLAG_N, true);
                 cycle
             }
+            SM83Opcode::CP { oprand } => {
+                // Aを更新しない以外はSUBと同等
+                fn sub(a: u8, b: u8, _: bool) -> (u8, bool, bool) {
+                    let (ret, overflow) = a.overflowing_sub(b);
+                    let half_overflow = ((a & 0xF) as i16 - (b & 0xF) as i16) < 0;
+                    (ret, overflow, half_overflow)
+                }
+                let a_backup = self.regs.a;
+                let cycle = self.execute_sub_adc_sbc(oprand, sub);
+                self.regs.a = a_backup;
+                self.set_flag(FLAG_N, true);
+                cycle
+            }
             SM83Opcode::RRCA => {
                 let lsb = self.regs.a & 0x01;
                 self.regs.a = (self.regs.a >> 1) | (lsb << 7);
@@ -616,7 +629,6 @@ impl SM83 {
                 self.set_flag(FLAG_C, false);
                 cycle
             }
-            // TODO: CP
             SM83Opcode::RETNooprand => {
                 let low = self.pop_stack();
                 let high = self.pop_stack();
