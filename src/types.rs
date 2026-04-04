@@ -99,6 +99,7 @@ pub enum SM83Oprand {
     R8AndN8 { r8: SM83Register8, n8: u8 },
     R8ToA8 { dst: u8, src: SM83Register8 },
     R8ToR8Indirect { dst: SM83Register8, src: SM83Register8 },
+    R16AndR16 { r1: SM83Register16, r2: SM83Register16 },
     R16AndE8 { r16: SM83Register16, e8: i8 },
     R8ToA16 { dst: u16, src: SM83Register8 },
     A8ToR8 { dst: SM83Register8, src: u8 },

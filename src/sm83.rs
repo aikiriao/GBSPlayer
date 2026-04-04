@@ -228,7 +228,7 @@ impl SM83 {
         self.set_flag(FLAG_N, false);
         self.set_flag(FLAG_H, true);
         self.set_flag(FLAG_C, true);
-        // TODO: 割り込みフラグを無効に
+        self.ime_flag = false;
     }
 
     /// レジスタリセット
@@ -371,7 +371,66 @@ impl SM83 {
                 self.set_flag(FLAG_C, msb != 0);
                 1
             }
-            // TODO: ADD
+            SM83Opcode::ADD { oprand } => {
+                fn add_u8(v1: u8, v2: u8) -> (u8, bool, bool) {
+                    let (ret, overflow) = v1.overflowing_add(v2);
+                    let half_overflow = ((v1 & 0xF) + (v2 & 0xF)) > 0xF;
+                    (ret, overflow, half_overflow)
+                }
+                fn add_u16(v1: u16, v2: u16) -> (u16, bool, bool) {
+                    let (ret, overflow) = v1.overflowing_add(v2);
+                    let half_overflow = ((v1 & 0xFFF) + (v2 & 0xFFF)) > 0xFFF;
+                    (ret, overflow, half_overflow)
+                }
+                let cycle;
+                let overflow;
+                let half_overflow;
+                match oprand {
+                    SM83Oprand::R8AndR8 { r1, r2 } => {
+                        let ret;
+                        (ret, overflow, half_overflow) = add_u8(self.get_r8(r1), self.get_r8(r2));
+                        self.regs.a = ret;
+                        self.set_flag(FLAG_Z, ret == 0);
+                        cycle = 1;
+                    }
+                    SM83Oprand::R8AndR16Indirect { r8, r16 } => {
+                        let ret;
+                        let address = self.get_r16(r16);
+                        (ret, overflow, half_overflow) = add_u8(self.get_r8(r8), self.read_mem_u8(address as usize));
+                        self.regs.a = ret;
+                        self.set_flag(FLAG_Z, ret == 0);
+                        cycle = 2;
+                    }
+                    SM83Oprand::R8AndN8 { r8, n8 } => {
+                        let ret;
+                        (ret, overflow, half_overflow) = add_u8(self.get_r8(r8), *n8);
+                        self.regs.a = ret;
+                        self.set_flag(FLAG_Z, ret == 0);
+                        cycle = 2;
+                    }
+                    SM83Oprand::R16ToR16 { dst, src } => {
+                        let ret;
+                        (ret, overflow, half_overflow) = add_u16(self.get_r16(dst), self.get_r16(src));
+                        self.set_r16(dst, ret);
+                        self.set_flag(FLAG_Z, ret == 0);
+                        cycle = 2;
+                    }
+                    SM83Oprand::R16AndE8 { r16, e8 } => {
+                        let reg = self.get_r16(r16);
+                        let r16ret = (reg as i32 + *e8 as i32) as u16;
+                        // オーバーフロー判定は8bitの範囲で行う
+                        (_, overflow, half_overflow) = add_u8((r16ret & 0xFF) as u8, *e8 as u8);
+                        self.set_r16(r16, r16ret);
+                        self.set_flag(FLAG_Z, false);
+                        cycle = 4;
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                self.set_flag(FLAG_N, false);
+                self.set_flag(FLAG_H, half_overflow);
+                self.set_flag(FLAG_C, overflow);
+                cycle
+            }
             SM83Opcode::RRCA => {
                 let lsb = self.regs.a & 0x01;
                 self.regs.a = (self.regs.a >> 1) | (lsb << 7);
