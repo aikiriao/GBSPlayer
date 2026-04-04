@@ -19,9 +19,13 @@ impl GBSPlayer {
     /// ロード
     pub fn load(&mut self, data: &[u8]) {
         let load_start = self.gbs_header.load_address as usize;
-        let load_end = self.gbs_header.load_address as usize + data.len();
+        let mut load_end = self.gbs_header.load_address as usize + data.len();
 
-        assert!(load_start < 0x8000);
+        // 読み出しアドレスの終端がROM領域を飛び出ていたら制限
+        // 残りのメモリはROMバンク切り替えでアクセスする
+        if load_end >= 0x8000 {
+            load_end = 0x8000;
+        }
 
         self.cpu.mem[load_start..load_end].copy_from_slice(data);
     }
@@ -50,10 +54,14 @@ impl GBSPlayer {
 
         // RETが実行されるまで実行
         loop {
-            let (opcode, _) = self.cpu.execute_step();
+            let (opcode, cycle) = self.cpu.execute_step();
             match opcode {
                 SM83Opcode::RETNooprand => break,
-                // TODO: もしかしたら条件付きRETがくるかも... -> サイクル数で分岐発生を判定できる
+                SM83Opcode::RET { .. } => {
+                    if cycle == 5 {
+                        break;
+                    }
+                }
                 _ => {}
             }
         }
@@ -65,10 +73,14 @@ impl GBSPlayer {
 
         // RETが実行されるまで実行 + 定期音声出力
         loop {
-            let (opcode, _) = self.cpu.execute_step();
+            let (opcode, cycle) = self.cpu.execute_step();
             match opcode {
                 SM83Opcode::RETNooprand => break,
-                // TODO: もしかしたら条件付きRETがくるかも...
+                SM83Opcode::RET { .. } => {
+                    if cycle == 5 {
+                        break;
+                    }
+                }
                 _ => {}
             }
         }
