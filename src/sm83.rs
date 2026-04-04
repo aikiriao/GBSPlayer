@@ -396,7 +396,8 @@ impl SM83 {
                     SM83Oprand::R8AndR16Indirect { r8, r16 } => {
                         let ret;
                         let address = self.get_r16(r16);
-                        (ret, overflow, half_overflow) = add_u8(self.get_r8(r8), self.read_mem_u8(address as usize));
+                        (ret, overflow, half_overflow) =
+                            add_u8(self.get_r8(r8), self.read_mem_u8(address as usize));
                         self.regs.a = ret;
                         self.set_flag(FLAG_Z, ret == 0);
                         cycle = 2;
@@ -410,7 +411,8 @@ impl SM83 {
                     }
                     SM83Oprand::R16ToR16 { dst, src } => {
                         let ret;
-                        (ret, overflow, half_overflow) = add_u16(self.get_r16(dst), self.get_r16(src));
+                        (ret, overflow, half_overflow) =
+                            add_u16(self.get_r16(dst), self.get_r16(src));
                         self.set_r16(dst, ret);
                         self.set_flag(FLAG_Z, ret == 0);
                         cycle = 2;
@@ -419,7 +421,8 @@ impl SM83 {
                         let reg = self.get_r16(r16);
                         let r16ret = (reg as i32 + *e8 as i32) as u16;
                         // オーバーフロー判定は8bitの範囲で行う
-                        (_, overflow, half_overflow) = add_u8((r16ret & 0xFF) as u8, *e8 as u8);
+                        half_overflow = ((reg ^ (*e8 as u16) ^ r16ret) & 0x0010) == 0x0010;
+                        overflow = ((reg ^ (*e8 as u16) ^ r16ret) & 0x0100) == 0x0100;
                         self.set_r16(r16, r16ret);
                         self.set_flag(FLAG_Z, false);
                         cycle = 4;
@@ -429,6 +432,48 @@ impl SM83 {
                 self.set_flag(FLAG_N, false);
                 self.set_flag(FLAG_H, half_overflow);
                 self.set_flag(FLAG_C, overflow);
+                cycle
+            }
+            SM83Opcode::SUB { oprand } => {
+                fn sub(a: u8, b: u8, _: bool) -> (u8, bool, bool) {
+                    let (ret, overflow) = a.overflowing_sub(b);
+                    let half_overflow = ((a & 0xF) as i16 - (b & 0xF) as i16) < 0;
+                    (ret, overflow, half_overflow)
+                }
+                let cycle = self.execute_sub_adc_sbc(oprand, sub);
+                self.set_flag(FLAG_N, true);
+                cycle
+            }
+            SM83Opcode::ADC { oprand } => {
+                fn adc(a: u8, b: u8, carry: bool) -> (u8, bool, bool) {
+                    let a16 = a as u16;
+                    let b16 = b as u16;
+                    let c = if carry { 1 } else { 0 };
+                    let ret = a16 + b16 + c;
+                    (
+                        (ret & 0xFF) as u8,
+                        ret >= 0x100,
+                        (a16 ^ b16 ^ ret) & 0x10 != 0,
+                    )
+                }
+                let cycle = self.execute_sub_adc_sbc(oprand, adc);
+                self.set_flag(FLAG_N, false);
+                cycle
+            }
+            SM83Opcode::SBC { oprand } => {
+                fn sbc(a: u8, b: u8, carry: bool) -> (u8, bool, bool) {
+                    let a16 = a as u16;
+                    let b16 = b as u16;
+                    let nc = if carry { 0 } else { 1 };
+                    let ret = a16.wrapping_sub(b16).wrapping_sub(nc);
+                    (
+                        (ret & 0xFF) as u8,
+                        ret < 0x100,
+                        (a16 ^ b16 ^ ret) & 0x10 == 0,
+                    )
+                }
+                let cycle = self.execute_sub_adc_sbc(oprand, sbc);
+                self.set_flag(FLAG_N, true);
                 cycle
             }
             SM83Opcode::RRCA => {
@@ -493,9 +538,6 @@ impl SM83 {
                 // TODO: 低電力モードに移行？
                 1
             }
-            // TODO: ADC
-            // TODO: SUB
-            // TODO: SBC
             SM83Opcode::AND { oprand } => {
                 let cycle;
                 let ret;
@@ -1047,6 +1089,41 @@ impl SM83 {
                 self.regs.sp = value;
             }
         }
+    }
+
+    /// SUB/ADC/SBC/命令の実行
+    fn execute_sub_adc_sbc(
+        &mut self,
+        oprand: &SM83Oprand,
+        op: fn(u8, u8, bool) -> (u8, bool, bool),
+    ) -> u8 {
+        let ret;
+        let cycle;
+        let overflow;
+        let half_overflow;
+        let carry = self.test_flag(FLAG_C);
+        match oprand {
+            SM83Oprand::R8AndR8 { r1, r2 } => {
+                (ret, overflow, half_overflow) = op(self.get_r8(r1), self.get_r8(r2), carry);
+                cycle = 1;
+            }
+            SM83Oprand::R8AndR16Indirect { r8, r16 } => {
+                let address = self.get_r16(r16);
+                (ret, overflow, half_overflow) =
+                    op(self.get_r8(r8), self.read_mem_u8(address as usize), carry);
+                cycle = 2;
+            }
+            SM83Oprand::R8AndN8 { r8, n8 } => {
+                (ret, overflow, half_overflow) = op(self.get_r8(r8), *n8, carry);
+                cycle = 2;
+            }
+            _ => unreachable!("Invalid oprand!"),
+        }
+        self.regs.a = ret;
+        self.set_flag(FLAG_Z, ret == 0);
+        self.set_flag(FLAG_H, half_overflow);
+        self.set_flag(FLAG_C, overflow);
+        cycle
     }
 
     /// LD命令の実行
