@@ -168,7 +168,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
             )
         }
         0x0F => create_opcode_with_length_check!(rom, SM83Opcode::RRCA, 1),
-        0x10 => create_opcode_with_length_check!(rom, SM83Opcode::STOP, 1),
+        0x10 => create_opcode_with_length_check!(rom, SM83Opcode::STOP, 2), // NOTE: 2byte
         0x11 => {
             create_opcode_with_length_check!(
                 rom,

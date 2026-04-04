@@ -315,62 +315,7 @@ impl SM83 {
                 // 何もしない
                 1
             }
-            SM83Opcode::LD { oprand } => self.execute_ld(oprand),
-            SM83Opcode::INC { oprand } => {
-                let cycle;
-                match oprand {
-                    SM83Oprand::R8 { r8 } => {
-                        let value = self.get_r8(r8);
-                        self.set_r8(r8, value.wrapping_add(1));
-                        cycle = 1;
-                    }
-                    SM83Oprand::R16 { r16 } => {
-                        let value = self.get_r16(r16);
-                        self.set_r16(r16, value.wrapping_add(1));
-                        cycle = 2;
-                    }
-                    SM83Oprand::R16Indirect { r16 } => {
-                        let address = self.get_r16(r16) as usize;
-                        let value = self.read_mem_u8(address);
-                        self.write_mem_u8(address, value.wrapping_add(1));
-                        cycle = 3;
-                    }
-                    _ => unreachable!("Invalid oprand!"),
-                }
-                cycle
-            }
-            SM83Opcode::DEC { oprand } => {
-                let cycle;
-                match oprand {
-                    SM83Oprand::R8 { r8 } => {
-                        let value = self.get_r8(r8);
-                        self.set_r8(r8, value.wrapping_sub(1));
-                        cycle = 1;
-                    }
-                    SM83Oprand::R16 { r16 } => {
-                        let value = self.get_r16(r16);
-                        self.set_r16(r16, value.wrapping_sub(1));
-                        cycle = 2;
-                    }
-                    SM83Oprand::R16Indirect { r16 } => {
-                        let address = self.get_r16(r16) as usize;
-                        let value = self.read_mem_u8(address);
-                        self.write_mem_u8(address, value.wrapping_sub(1));
-                        cycle = 3;
-                    }
-                    _ => unreachable!("Invalid oprand!"),
-                }
-                cycle
-            }
-            SM83Opcode::RLCA => {
-                let msb = self.regs.a & 0x80;
-                self.regs.a = (self.regs.a << 1) | (msb >> 7);
-                self.set_flag(FLAG_Z, false);
-                self.set_flag(FLAG_N, false);
-                self.set_flag(FLAG_H, false);
-                self.set_flag(FLAG_C, msb != 0);
-                1
-            }
+            // 算術演算命令
             SM83Opcode::ADD { oprand } => {
                 fn add_u8(v1: u8, v2: u8) -> (u8, bool, bool) {
                     let (ret, overflow) = v1.overflowing_add(v2);
@@ -489,67 +434,77 @@ impl SM83 {
                 self.set_flag(FLAG_N, true);
                 cycle
             }
-            SM83Opcode::RRCA => {
-                let lsb = self.regs.a & 0x01;
-                self.regs.a = (self.regs.a >> 1) | (lsb << 7);
-                self.set_flag(FLAG_Z, false);
-                self.set_flag(FLAG_N, false);
-                self.set_flag(FLAG_H, false);
-                self.set_flag(FLAG_C, lsb != 0);
-                1
-            }
-            SM83Opcode::RLA => {
-                let msb = self.regs.a & 0x80;
-                let lsb = if self.test_flag(FLAG_C) { 0x01 } else { 0x00 };
-                self.regs.a = (self.regs.a << 1) | lsb;
-                self.set_flag(FLAG_C, msb != 0);
-                1
-            }
-            SM83Opcode::JR { oprand } => match oprand {
-                SM83Oprand::E8 { e8 } => {
-                    self.regs.pc = (self.regs.pc as i32 + *e8 as i32) as u16;
-                    3
-                }
-                SM83Oprand::CCAndE8 { cc, e8 } => {
-                    if self.test_condition_code(cc) {
-                        self.regs.pc = (self.regs.pc as i32 + *e8 as i32) as u16;
-                        3
-                    } else {
-                        2
+            SM83Opcode::DEC { oprand } => {
+                let cycle;
+                match oprand {
+                    SM83Oprand::R8 { r8 } => {
+                        let value = self.get_r8(r8);
+                        self.set_r8(r8, value.wrapping_sub(1));
+                        cycle = 1;
                     }
+                    SM83Oprand::R16 { r16 } => {
+                        let value = self.get_r16(r16);
+                        self.set_r16(r16, value.wrapping_sub(1));
+                        cycle = 2;
+                    }
+                    SM83Oprand::R16Indirect { r16 } => {
+                        let address = self.get_r16(r16) as usize;
+                        let value = self.read_mem_u8(address);
+                        self.write_mem_u8(address, value.wrapping_sub(1));
+                        cycle = 3;
+                    }
+                    _ => unreachable!("Invalid oprand!"),
                 }
-                _ => unreachable!("Invalid oprand!"),
-            },
-            SM83Opcode::RRA => {
-                let lsb = self.regs.a & 0x01;
-                let msb = if self.test_flag(FLAG_C) { 0x80 } else { 0x00 };
-                self.regs.a = (self.regs.a >> 1) | msb;
-                self.set_flag(FLAG_C, lsb != 0);
-                1
+                cycle
             }
-            // TODO: DAA
-            SM83Opcode::CPL => {
-                self.regs.a = !self.regs.a;
-                self.set_flag(FLAG_N, true);
-                self.set_flag(FLAG_H, true);
-                1
+            SM83Opcode::INC { oprand } => {
+                let cycle;
+                match oprand {
+                    SM83Oprand::R8 { r8 } => {
+                        let value = self.get_r8(r8);
+                        self.set_r8(r8, value.wrapping_add(1));
+                        cycle = 1;
+                    }
+                    SM83Oprand::R16 { r16 } => {
+                        let value = self.get_r16(r16);
+                        self.set_r16(r16, value.wrapping_add(1));
+                        cycle = 2;
+                    }
+                    SM83Oprand::R16Indirect { r16 } => {
+                        let address = self.get_r16(r16) as usize;
+                        let value = self.read_mem_u8(address);
+                        self.write_mem_u8(address, value.wrapping_add(1));
+                        cycle = 3;
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                cycle
             }
-            SM83Opcode::SCF => {
+            SM83Opcode::OR { oprand } => {
+                let cycle;
+                let ret;
+                match oprand {
+                    SM83Oprand::R8AndR8 { r1, r2 } => {
+                        ret = self.get_r8(r1) | self.get_r8(r2);
+                        cycle = 1;
+                    }
+                    SM83Oprand::R8AndR16Indirect { r8, r16 } => {
+                        let address = self.get_r16(r16);
+                        ret = self.get_r8(r8) | self.read_mem_u8(address as usize);
+                        cycle = 2;
+                    }
+                    SM83Oprand::R8AndN8 { r8, n8 } => {
+                        ret = self.get_r8(r8) | *n8;
+                        cycle = 2;
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                self.regs.a = ret;
+                self.set_flag(FLAG_Z, ret == 0);
                 self.set_flag(FLAG_N, false);
                 self.set_flag(FLAG_H, false);
-                self.set_flag(FLAG_C, true);
-                1
-            }
-            SM83Opcode::CCF => {
-                self.set_flag(FLAG_N, false);
-                self.set_flag(FLAG_H, false);
-                self.set_flag(FLAG_C, !self.test_flag(FLAG_C));
-                1
-            }
-            SM83Opcode::HALT => {
-                warn!("execute HALT instruction");
-                // TODO: 低電力モードに移行？
-                1
+                self.set_flag(FLAG_C, false);
+                cycle
             }
             SM83Opcode::AND { oprand } => {
                 let cycle;
@@ -603,134 +558,124 @@ impl SM83 {
                 self.set_flag(FLAG_C, false);
                 cycle
             }
-            SM83Opcode::OR { oprand } => {
+            // bit操作命令
+            SM83Opcode::BIT { u3, oprand } => {
                 let cycle;
                 let ret;
+                let test_bit = 1 << u3;
                 match oprand {
-                    SM83Oprand::R8AndR8 { r1, r2 } => {
-                        ret = self.get_r8(r1) | self.get_r8(r2);
-                        cycle = 1;
+                    SM83Oprand::R8 { r8 } => {
+                        let reg = self.get_r8(r8);
+                        ret = reg & test_bit;
+                        cycle = 2;
                     }
-                    SM83Oprand::R8AndR16Indirect { r8, r16 } => {
+                    SM83Oprand::R16Indirect { r16 } => {
                         let address = self.get_r16(r16);
-                        ret = self.get_r8(r8) | self.read_mem_u8(address as usize);
-                        cycle = 2;
-                    }
-                    SM83Oprand::R8AndN8 { r8, n8 } => {
-                        ret = self.get_r8(r8) | *n8;
-                        cycle = 2;
+                        let value = self.read_mem_u8(address as usize);
+                        ret = value & test_bit;
+                        cycle = 3;
                     }
                     _ => unreachable!("Invalid oprand!"),
                 }
-                self.regs.a = ret;
+                self.set_flag(FLAG_Z, ret == 0);
+                self.set_flag(FLAG_N, false);
+                self.set_flag(FLAG_H, true);
+                cycle
+            }
+            SM83Opcode::RES { u3, oprand } => {
+                let cycle;
+                let mask = !(1 << u3);
+                match oprand {
+                    SM83Oprand::R8 { r8 } => {
+                        let reg = self.get_r8(r8);
+                        self.set_r8(r8, reg & mask);
+                        cycle = 2;
+                    }
+                    SM83Oprand::R16Indirect { r16 } => {
+                        let address = self.get_r16(r16) as usize;
+                        let value = self.read_mem_u8(address);
+                        self.write_mem_u8(address, value & mask);
+                        cycle = 4;
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                cycle
+            }
+            SM83Opcode::SET { u3, oprand } => {
+                let cycle;
+                let bit = 1 << u3;
+                match oprand {
+                    SM83Oprand::R8 { r8 } => {
+                        let reg = self.get_r8(r8);
+                        self.set_r8(r8, reg | bit);
+                        cycle = 2;
+                    }
+                    SM83Oprand::R16Indirect { r16 } => {
+                        let address = self.get_r16(r16) as usize;
+                        let value = self.read_mem_u8(address);
+                        self.write_mem_u8(address, value | bit);
+                        cycle = 4;
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                cycle
+            }
+            SM83Opcode::SWAP { oprand } => {
+                let ret;
+                let cycle;
+                match oprand {
+                    SM83Oprand::R8 { r8 } => {
+                        let reg = self.get_r8(r8);
+                        ret = (reg >> 4) | (reg << 4);
+                        self.set_r8(r8, ret);
+                        cycle = 2;
+                    }
+                    SM83Oprand::R16Indirect { r16 } => {
+                        let address = self.get_r16(r16) as usize;
+                        let value = self.read_mem_u8(address);
+                        ret = (value >> 4) | (value << 4);
+                        self.write_mem_u8(address, ret);
+                        cycle = 4;
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
                 self.set_flag(FLAG_Z, ret == 0);
                 self.set_flag(FLAG_N, false);
                 self.set_flag(FLAG_H, false);
                 self.set_flag(FLAG_C, false);
                 cycle
             }
-            SM83Opcode::RETNooprand => {
-                let low = self.pop_stack();
-                let high = self.pop_stack();
-                self.regs.pc = ((high as u16) << 8) | (low as u16);
-                4
-            }
-            SM83Opcode::RET { oprand } => match oprand {
-                SM83Oprand::CC { cc } => {
-                    if self.test_condition_code(cc) {
-                        let low = self.pop_stack();
-                        let high = self.pop_stack();
-                        self.regs.pc = ((high as u16) << 8) | (low as u16);
-                        5
-                    } else {
-                        2
-                    }
-                }
-                _ => unreachable!("Invalid oprand!"),
-            },
-            SM83Opcode::POP { oprand } => {
-                match oprand {
-                    SM83Oprand::R16 { r16 } => {
-                        let low = self.pop_stack();
-                        let high = self.pop_stack();
-                        self.set_r16(r16, ((high as u16) << 8) | (low as u16));
-                    }
-                    _ => unreachable!("Invalid oprand!"),
-                }
-                3
-            }
-            SM83Opcode::PUSH { oprand } => {
-                match oprand {
-                    SM83Oprand::R16 { r16 } => {
-                        let value = self.get_r16(r16);
-                        self.push_stack(((value >> 8) & 0xFF) as u8);
-                        self.push_stack(((value >> 0) & 0xFF) as u8);
-                    }
-                    _ => unreachable!("Invalid oprand!"),
-                }
-                4
-            }
-            SM83Opcode::RST { vec } => {
-                self.push_stack(((self.regs.pc >> 8) & 0xFF) as u8);
-                self.push_stack(((self.regs.pc >> 0) & 0xFF) as u8);
-                self.regs.pc = *vec as u16;
-                4
-            }
-            SM83Opcode::JP { oprand } => match oprand {
-                SM83Oprand::CCAndA16 { cc, a16 } => {
-                    if self.test_condition_code(cc) {
-                        self.regs.pc = *a16;
-                        4
-                    } else {
-                        3
-                    }
-                }
-                SM83Oprand::A16 { a16 } => {
-                    self.regs.pc = *a16;
-                    4
-                }
-                _ => unreachable!("Invalid oprand!"),
-            },
-            SM83Opcode::CALL { oprand } => match oprand {
-                SM83Oprand::CCAndA16 { cc, a16 } => {
-                    if self.test_condition_code(cc) {
-                        self.push_stack(((self.regs.pc >> 8) & 0xFF) as u8);
-                        self.push_stack(((self.regs.pc >> 0) & 0xFF) as u8);
-                        self.regs.pc = *a16;
-                        6
-                    } else {
-                        3
-                    }
-                }
-                SM83Oprand::A16 { a16 } => {
-                    self.push_stack(((self.regs.pc >> 8) & 0xFF) as u8);
-                    self.push_stack(((self.regs.pc >> 0) & 0xFF) as u8);
-                    6
-                }
-                _ => unreachable!("Invalid oprand!"),
-            },
-            SM83Opcode::LDH { oprand } => match oprand {
-                SM83Oprand::R8ToA8 { dst, src } => {
-                    let value = self.get_r8(src);
-                    let address = HWREG_START_ADDRESS as usize + *dst as usize;
-                    self.write_mem_u8(address, value);
-                    3
-                }
-                SM83Oprand::R8IndirectToR8 { dst, src } => {
-                    let address = HWREG_START_ADDRESS as usize + self.get_r8(src) as usize;
-                    let value = self.read_mem_u8(address);
-                    self.set_r8(dst, value);
-                    2
-                }
-                _ => unreachable!("Invalid oprand!"),
-            },
-            SM83Opcode::DI => {
-                self.ime_flag = false;
+            // bitシフト命令
+            SM83Opcode::RLCA => {
+                let msb = self.regs.a & 0x80;
+                self.regs.a = (self.regs.a << 1) | (msb >> 7);
+                self.set_flag(FLAG_Z, false);
+                self.set_flag(FLAG_N, false);
+                self.set_flag(FLAG_H, false);
+                self.set_flag(FLAG_C, msb != 0);
                 1
             }
-            SM83Opcode::EI => {
-                // NOTE: この命令実行後に有効になる
-                self.ime_flag = true;
+            SM83Opcode::RRCA => {
+                let lsb = self.regs.a & 0x01;
+                self.regs.a = (self.regs.a >> 1) | (lsb << 7);
+                self.set_flag(FLAG_Z, false);
+                self.set_flag(FLAG_N, false);
+                self.set_flag(FLAG_H, false);
+                self.set_flag(FLAG_C, lsb != 0);
+                1
+            }
+            SM83Opcode::RLA => {
+                let msb = self.regs.a & 0x80;
+                let lsb = if self.test_flag(FLAG_C) { 0x01 } else { 0x00 };
+                self.regs.a = (self.regs.a << 1) | lsb;
+                self.set_flag(FLAG_C, msb != 0);
+                1
+            }
+            SM83Opcode::RRA => {
+                let lsb = self.regs.a & 0x01;
+                let msb = if self.test_flag(FLAG_C) { 0x80 } else { 0x00 };
+                self.regs.a = (self.regs.a >> 1) | msb;
+                self.set_flag(FLAG_C, lsb != 0);
                 1
             }
             SM83Opcode::RLC { oprand } => {
@@ -905,31 +850,6 @@ impl SM83 {
                 self.set_flag(FLAG_C, lsb != 0);
                 cycle
             }
-            SM83Opcode::SWAP { oprand } => {
-                let ret;
-                let cycle;
-                match oprand {
-                    SM83Oprand::R8 { r8 } => {
-                        let reg = self.get_r8(r8);
-                        ret = (reg >> 4) | (reg << 4);
-                        self.set_r8(r8, ret);
-                        cycle = 2;
-                    }
-                    SM83Oprand::R16Indirect { r16 } => {
-                        let address = self.get_r16(r16) as usize;
-                        let value = self.read_mem_u8(address);
-                        ret = (value >> 4) | (value << 4);
-                        self.write_mem_u8(address, ret);
-                        cycle = 4;
-                    }
-                    _ => unreachable!("Invalid oprand!"),
-                }
-                self.set_flag(FLAG_Z, ret == 0);
-                self.set_flag(FLAG_N, false);
-                self.set_flag(FLAG_H, false);
-                self.set_flag(FLAG_C, false);
-                cycle
-            }
             SM83Opcode::SRL { oprand } => {
                 let ret;
                 let lsb;
@@ -958,66 +878,197 @@ impl SM83 {
                 self.set_flag(FLAG_C, lsb != 0);
                 cycle
             }
-            SM83Opcode::BIT { u3, oprand } => {
-                let cycle;
-                let ret;
-                let test_bit = 1 << u3;
-                match oprand {
-                    SM83Oprand::R8 { r8 } => {
-                        let reg = self.get_r8(r8);
-                        ret = reg & test_bit;
-                        cycle = 2;
+            // ロード命令
+            SM83Opcode::LD { oprand } => self.execute_ld(oprand),
+            SM83Opcode::LDH { oprand } => match oprand {
+                SM83Oprand::R8ToA8 { dst, src } => {
+                    let value = self.get_r8(src);
+                    let address = HWREG_START_ADDRESS as usize + *dst as usize;
+                    self.write_mem_u8(address, value);
+                    3
+                }
+                SM83Oprand::R8IndirectToR8 { dst, src } => {
+                    let address = HWREG_START_ADDRESS as usize + self.get_r8(src) as usize;
+                    let value = self.read_mem_u8(address);
+                    self.set_r8(dst, value);
+                    2
+                }
+                _ => unreachable!("Invalid oprand!"),
+            },
+            // ジャンプ・コール命令
+            SM83Opcode::JP { oprand } => match oprand {
+                SM83Oprand::CCAndA16 { cc, a16 } => {
+                    if self.test_condition_code(cc) {
+                        self.regs.pc = *a16;
+                        4
+                    } else {
+                        3
                     }
-                    SM83Oprand::R16Indirect { r16 } => {
-                        let address = self.get_r16(r16);
-                        let value = self.read_mem_u8(address as usize);
-                        ret = value & test_bit;
-                        cycle = 3;
+                }
+                SM83Oprand::A16 { a16 } => {
+                    self.regs.pc = *a16;
+                    4
+                }
+                _ => unreachable!("Invalid oprand!"),
+            },
+            SM83Opcode::JR { oprand } => match oprand {
+                SM83Oprand::E8 { e8 } => {
+                    self.regs.pc = (self.regs.pc as i32 + *e8 as i32) as u16;
+                    3
+                }
+                SM83Oprand::CCAndE8 { cc, e8 } => {
+                    if self.test_condition_code(cc) {
+                        self.regs.pc = (self.regs.pc as i32 + *e8 as i32) as u16;
+                        3
+                    } else {
+                        2
+                    }
+                }
+                _ => unreachable!("Invalid oprand!"),
+            },
+            SM83Opcode::CALL { oprand } => match oprand {
+                SM83Oprand::CCAndA16 { cc, a16 } => {
+                    if self.test_condition_code(cc) {
+                        self.push_stack(((self.regs.pc >> 8) & 0xFF) as u8);
+                        self.push_stack(((self.regs.pc >> 0) & 0xFF) as u8);
+                        self.regs.pc = *a16;
+                        6
+                    } else {
+                        3
+                    }
+                }
+                SM83Oprand::A16 { a16 } => {
+                    self.push_stack(((self.regs.pc >> 8) & 0xFF) as u8);
+                    self.push_stack(((self.regs.pc >> 0) & 0xFF) as u8);
+                    6
+                }
+                _ => unreachable!("Invalid oprand!"),
+            },
+            SM83Opcode::RETNooprand => {
+                let low = self.pop_stack();
+                let high = self.pop_stack();
+                self.regs.pc = ((high as u16) << 8) | (low as u16);
+                4
+            }
+            SM83Opcode::RET { oprand } => match oprand {
+                SM83Oprand::CC { cc } => {
+                    if self.test_condition_code(cc) {
+                        let low = self.pop_stack();
+                        let high = self.pop_stack();
+                        self.regs.pc = ((high as u16) << 8) | (low as u16);
+                        5
+                    } else {
+                        2
+                    }
+                }
+                _ => unreachable!("Invalid oprand!"),
+            },
+            SM83Opcode::RETI => {
+                let low = self.pop_stack();
+                let high = self.pop_stack();
+                self.regs.pc = ((high as u16) << 8) | (low as u16);
+                self.ime_flag = true;
+                4
+            }
+            SM83Opcode::RST { vec } => {
+                self.push_stack(((self.regs.pc >> 8) & 0xFF) as u8);
+                self.push_stack(((self.regs.pc >> 0) & 0xFF) as u8);
+                self.regs.pc = *vec as u16;
+                4
+            }
+            // スタック操作命令
+            SM83Opcode::PUSH { oprand } => {
+                match oprand {
+                    SM83Oprand::R16 { r16 } => {
+                        let value = self.get_r16(r16);
+                        self.push_stack(((value >> 8) & 0xFF) as u8);
+                        self.push_stack(((value >> 0) & 0xFF) as u8);
                     }
                     _ => unreachable!("Invalid oprand!"),
                 }
-                self.set_flag(FLAG_Z, ret == 0);
+                4
+            }
+            SM83Opcode::POP { oprand } => {
+                match oprand {
+                    SM83Oprand::R16 { r16 } => {
+                        let low = self.pop_stack();
+                        let high = self.pop_stack();
+                        self.set_r16(r16, ((high as u16) << 8) | (low as u16));
+                    }
+                    _ => unreachable!("Invalid oprand!"),
+                }
+                3
+            }
+            // その他
+            SM83Opcode::CCF => {
                 self.set_flag(FLAG_N, false);
+                self.set_flag(FLAG_H, false);
+                self.set_flag(FLAG_C, !self.test_flag(FLAG_C));
+                1
+            }
+            SM83Opcode::CPL => {
+                self.regs.a = !self.regs.a;
+                self.set_flag(FLAG_N, true);
                 self.set_flag(FLAG_H, true);
-                cycle
+                1
             }
-            SM83Opcode::RES { u3, oprand } => {
-                let cycle;
-                let mask = !(1 << u3);
-                match oprand {
-                    SM83Oprand::R8 { r8 } => {
-                        let reg = self.get_r8(r8);
-                        self.set_r8(r8, reg & mask);
-                        cycle = 2;
+            SM83Opcode::DAA => {
+                let mut ret = self.regs.a;
+                let mut carry = self.test_flag(FLAG_C);
+                if self.test_flag(FLAG_N) {
+                    // ハーフキャリーフラグが設定されている or 下位ニブルが0xA以上ならば0x6を足す
+                    if self.test_flag(FLAG_H) || (ret & 0x0F) >= 0xA {
+                        (ret, carry) = ret.overflowing_sub(0x06);
                     }
-                    SM83Oprand::R16Indirect { r16 } => {
-                        let address = self.get_r16(r16) as usize;
-                        let value = self.read_mem_u8(address);
-                        self.write_mem_u8(address, value & mask);
-                        cycle = 4;
+                    // キャリーフラグがクリアされている or 上位ニブルが0xA以上ならば0x60を足す
+                    if !self.test_flag(FLAG_C) || ((ret & 0xF0) >> 4) >= 0xA {
+                        (ret, carry) = ret.overflowing_sub(0x60);
                     }
-                    _ => unreachable!("Invalid oprand!"),
+                } else {
+                    // ハーフキャリーフラグが設定されている or 下位ニブルが0xA以上ならば0x6を足す
+                    if self.test_flag(FLAG_H) || (ret & 0x0F) >= 0xA {
+                        (ret, carry) = ret.overflowing_add(0x06);
+                    }
+                    // キャリーフラグがクリアされている or 上位ニブルが0xA以上ならば0x60を足す
+                    if !self.test_flag(FLAG_C) || ((ret & 0xF0) >> 4) >= 0xA {
+                        (ret, carry) = ret.overflowing_add(0x60);
+                    }
                 }
-                cycle
+                // 最上位ビットにキャリーフラグをセットする
+                ret = if self.test_flag(FLAG_C) {
+                    ret | 0x80
+                } else {
+                    ret & 0x7F
+                };
+                self.regs.a = ret;
+                self.set_flag(FLAG_Z, ret == 0);
+                self.set_flag(FLAG_H, false);
+                self.set_flag(FLAG_C, carry);
+                1
             }
-            SM83Opcode::SET { u3, oprand } => {
-                let cycle;
-                let bit = 1 << u3;
-                match oprand {
-                    SM83Oprand::R8 { r8 } => {
-                        let reg = self.get_r8(r8);
-                        self.set_r8(r8, reg | bit);
-                        cycle = 2;
-                    }
-                    SM83Oprand::R16Indirect { r16 } => {
-                        let address = self.get_r16(r16) as usize;
-                        let value = self.read_mem_u8(address);
-                        self.write_mem_u8(address, value | bit);
-                        cycle = 4;
-                    }
-                    _ => unreachable!("Invalid oprand!"),
-                }
-                cycle
+            SM83Opcode::DI => {
+                self.ime_flag = false;
+                1
+            }
+            SM83Opcode::EI => {
+                // NOTE: この命令実行後に有効になる
+                self.ime_flag = true;
+                1
+            }
+            SM83Opcode::HALT => {
+                // 低電力モードに移行？
+                warn!("execute HALT instruction");
+                1
+            }
+            SM83Opcode::SCF => {
+                self.set_flag(FLAG_N, false);
+                self.set_flag(FLAG_H, false);
+                self.set_flag(FLAG_C, true);
+                1
+            }
+            SM83Opcode::STOP => {
+                warn!("execute STOP instruction");
+                1
             }
             _ => panic!("Invalid opcode: {:?}", opcode),
         }
