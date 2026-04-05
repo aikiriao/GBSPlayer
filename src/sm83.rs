@@ -352,7 +352,8 @@ impl<'a> SM83<'a> {
         // ハードウェアレジスタからの読み込み
         if (address >= HWREG_P1_JOYPAD) && (address <= HWREG_IE_INTTERUPT_ENABLE) {
             match address {
-                _ => todo!("unimplemented!"),
+                // TODO: 読み込みに副作用がある可能性
+                _ => {}
             }
         }
         self.mem[address]
