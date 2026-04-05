@@ -2,6 +2,17 @@ use crate::assembler::*;
 use crate::types::*;
 use log::{trace, warn};
 
+/// ゲームボーイのマスタークロック(Hz)
+const DMG_MASTER_CLOCK_HZ: u32 = 4194304;
+/// ゲームボーイのシステムクロック(Hz)
+const DMG_SYSTEM_CLOCK_HZ: u32 = DMG_MASTER_CLOCK_HZ / 4;
+/// VBlank（垂直同期）間隔(Hz)
+const VBLANK_PERIOD_HZ: f32 = 59.73;
+/// VBlankあたりのシステムクロック数
+const SYSTEM_CLOCKS_PER_VBLANK: f32 = (DMG_SYSTEM_CLOCK_HZ as f32) / VBLANK_PERIOD_HZ;
+/// DIVレジスタがカウントアップするシステムクロック数
+const DIVIDER_RATE_STSTEM_CLOCKS: u32 = 64;
+
 /// ゼロフラグ
 const FLAG_Z: u8 = 1 << 7;
 /// ネガティブ(BCD)フラグ
@@ -28,8 +39,18 @@ const NOT_USABLE_START_ADDRESS: usize = 0xFEA0;
 const HWREG_START_ADDRESS: usize = 0xFF00;
 /// High RAM (HRAM)
 const HRAM_START_ADDRESS: usize = 0xFF80;
-/// Intterupt Enable Register
-const IE_START_ADDRESS: usize = 0xFFFF;
+
+// 割り込み要求・有効フラグ
+/// ジョイパッド割り込み
+const INTERRUPT_FLAG_JOYPAD: u8 = 1 << 4;
+/// シリアル割り込み
+const INTERRUPT_FLAG_SERIAL: u8 = 1 << 3;
+/// タイマー割り込み
+const INTERRUPT_FLAG_TIMER: u8 = 1 << 2;
+/// LCD割り込み
+const INTERRUPT_FLAG_LCD: u8 = 1 << 1;
+/// VBlank割り込み
+const INTERRUPT_FLAG_VBLANK: u8 = 1 << 0;
 
 // MBC(Memory Bank Controller)レジスタアドレスの範囲
 /// MBC1 RAM gate register
@@ -163,7 +184,7 @@ pub const HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12: usize = 0xFF76;
 /// チャンネル3,4のオーディオデジタル出力
 pub const HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34: usize = 0xFF77;
 /// 割り込み有効フラグ
-pub const HWREG_IE_INTTERUPT_ENABLE: usize = 0xFFFF;
+pub const HWREG_IE_INTERRUPT_ENABLE: usize = 0xFFFF;
 
 /// SM83エミュレータ
 pub struct SM83<'a> {
@@ -183,6 +204,16 @@ pub struct SM83<'a> {
     mbc1_mode: u8,
     /// IMEフラグ
     pub ime_flag: bool,
+    /// タイマー(TIMA)有効か？
+    timer_enable: bool,
+    /// タイマーが増加するサイクル数 (M-cycle)
+    timer_increment_mcycle: u32,
+    /// タイマーティック用カウント (M-cycle)
+    timer_tick_mcycle_count: u32,
+    /// DIVレジスタ用カウント (M-cycle)
+    div_mcycle_count: u32,
+    /// VBlank用カウント (M-cycle)
+    vblank_mcycle_count: f32,
 }
 
 impl<'a> SM83<'a> {
@@ -213,6 +244,11 @@ impl<'a> SM83<'a> {
             mem: [0; 65536],
             rom: rom,
             ime_flag: false,
+            timer_enable: false,
+            timer_increment_mcycle: 256, // Clock select = 00 に相当
+            timer_tick_mcycle_count: 0,
+            div_mcycle_count: 0,
+            vblank_mcycle_count: 0.0,
         }
     }
 
@@ -292,6 +328,9 @@ impl<'a> SM83<'a> {
 
     /// ステップ実行
     pub fn execute_step(&mut self) -> (SM83Opcode, u8) {
+        // 割り込み処理
+        self.handle_interrupt();
+        // オペコードをパース
         let (opcode, len) = parse_opcode(&self.mem[(self.regs.pc as usize)..]);
         trace!(
             "{:#06X}: {:02X?} {:X?} {:X?}",
@@ -301,8 +340,39 @@ impl<'a> SM83<'a> {
             self.regs
         );
         self.regs.pc += len;
+        // 命令実行
         let cycle = self.execute_opcode(&opcode);
         (opcode, cycle)
+    }
+
+    /// 割り込み処理
+    fn handle_interrupt(&mut self) {
+        // 割り込み無効ならば何もしない
+        if !self.ime_flag {
+            return;
+        }
+
+        // 割り込み優先順(IFのbit0から順)に処理
+        let iflags = self.mem[HWREG_IF_INTERRUPT_FLAG] & self.mem[HWREG_IE_INTERRUPT_ENABLE];
+        for i in 0..=4 {
+            if (iflags & (1 << i)) != 0 {
+                // 割り込みフラグをクリア
+                self.ime_flag = false;
+                // 現在のPCをスタックにプッシュ
+                self.push_stack(((self.regs.pc >> 8) & 0xFF) as u8);
+                self.push_stack(((self.regs.pc >> 0) & 0xFF) as u8);
+                // 割り込み先にジャンプ
+                self.regs.pc = 0x0040 + 8 * i;
+                // RETI命令があるまで実行
+                loop {
+                    let (opcode, cycle) = self.execute_step();
+                    match opcode {
+                        SM83Opcode::RETI => break,
+                        _ => {}
+                    }
+                }
+            }
+        }
     }
 
     /// 8bitメモリ書き込み
@@ -335,6 +405,30 @@ impl<'a> SM83<'a> {
         } else if (address >= HWREG_P1_JOYPAD) && (address < HRAM_START_ADDRESS) {
             // ハードウェアレジスタへの書き込み
             match address {
+                HWREG_DIV_REGISTER => {
+                    // どの値の書き込みでも0にリセット
+                    self.mem[HWREG_DIV_REGISTER] = 0;
+                    return;
+                }
+                HWREG_TIMA_TIMER_COUNTER => {
+                    // そのまま書き込む
+                }
+                HWREG_TMA_TIMER_MODULO => {
+                    // そのまま書き込む（TIMAのリセット時に参照）
+                }
+                HWREG_TAC_TIMER_CONTROL => {
+                    self.timer_enable = (value & 0x4) != 0;
+                    self.timer_increment_mcycle = match value & 0x3 {
+                        0 => 256,
+                        1 => 4,
+                        2 => 16,
+                        3 => 64,
+                        _ => unreachable!(),
+                    };
+                }
+                HWREG_NR10_CHANNEL1_SWEEP..HWREG_LCDC_LCD_CONTROL => {
+                    // println!("W: 0x{:04X} <- {:02X}", address, value);
+                }
                 _ => {}
             }
             // 書き込み値は保持しておく
@@ -350,13 +444,48 @@ impl<'a> SM83<'a> {
     pub fn read_mem_u8(&mut self, address: usize) -> u8 {
         trace!("R: 0x{:04X} -> {:02X}", address, self.mem[address]);
         // ハードウェアレジスタからの読み込み
-        if (address >= HWREG_P1_JOYPAD) && (address <= HWREG_IE_INTTERUPT_ENABLE) {
+        if (address >= HWREG_P1_JOYPAD) && (address <= HWREG_IE_INTERRUPT_ENABLE) {
             match address {
                 // TODO: 読み込みに副作用がある可能性
                 _ => {}
             }
         }
         self.mem[address]
+    }
+
+    /// 4M-Cycleティック
+    pub fn clock_tick_4mcycle(&mut self) {
+        // タイマーティック
+        self.timer_tick_mcycle_count += 4;
+        if self.timer_tick_mcycle_count >= self.timer_increment_mcycle {
+            if self.timer_enable {
+                let tima = self.mem[HWREG_TIMA_TIMER_COUNTER];
+                self.mem[HWREG_TIMA_TIMER_COUNTER] = if tima == 0xFF {
+                    // タイマー割り込み要求フラグを立てる
+                    self.mem[HWREG_IF_INTERRUPT_FLAG] |= INTERRUPT_FLAG_TIMER;
+                    // TIMER MODULOの値にリセット
+                    self.mem[HWREG_TMA_TIMER_MODULO]
+                } else {
+                    tima.wrapping_add(1)
+                };
+            }
+            self.timer_tick_mcycle_count -= self.timer_increment_mcycle;
+        }
+
+        // DIVレジスタカウントアップ
+        self.div_mcycle_count += 4;
+        if self.div_mcycle_count >= DIVIDER_RATE_STSTEM_CLOCKS {
+            self.mem[HWREG_DIV_REGISTER] = self.mem[HWREG_DIV_REGISTER].wrapping_add(1);
+            self.div_mcycle_count -= DIVIDER_RATE_STSTEM_CLOCKS;
+        }
+
+        // VBLANK
+        self.vblank_mcycle_count += 4.0;
+        if self.vblank_mcycle_count >= SYSTEM_CLOCKS_PER_VBLANK {
+            // VBLANK割り込み要求フラグを立てる
+            self.mem[HWREG_IF_INTERRUPT_FLAG] |= INTERRUPT_FLAG_VBLANK;
+            self.vblank_mcycle_count -= SYSTEM_CLOCKS_PER_VBLANK;
+        }
     }
 
     /// 16bitメモリ書き込み
@@ -1143,6 +1272,8 @@ impl<'a> SM83<'a> {
             }
             SM83Opcode::STOP => {
                 warn!("execute STOP instruction");
+                // DIVレジスタを0クリア
+                self.mem[HWREG_DIV_REGISTER] = 0;
                 1
             }
         }
