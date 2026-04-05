@@ -116,7 +116,7 @@ impl APU {
                 0
             }
             HWREG_CHANNEL3_WAVE_PATTERN_RAM_START..(HWREG_CHANNEL3_WAVE_PATTERN_RAM_START + 16) => {
-                // TODO: 再生中にセットすると書き込みは無視される
+                // TODO: 再生中に読み出すと0xFFを返す
                 let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
                 (self.wave_ram[smpl + 0] << 4) | (self.wave_ram[smpl + 1])
             }
