@@ -5,6 +5,7 @@ use crate::types::*;
 pub struct GBSPlayer<'a> {
     cpu: SM83<'a>,
     gbs_header: GBSFileHeader,
+    cycle_count: u32,
 }
 
 impl<'a> GBSPlayer<'a> {
@@ -13,6 +14,7 @@ impl<'a> GBSPlayer<'a> {
         Self {
             cpu: SM83::new(rom),
             gbs_header: gbs_header.clone(),
+            cycle_count: 0,
         }
     }
 
@@ -83,6 +85,13 @@ impl<'a> GBSPlayer<'a> {
                     }
                 }
                 _ => {}
+            }
+
+            // 4マシンサイクルごとにティック
+            self.cycle_count += 4;
+            if self.cycle_count >= 4 {
+                self.cpu.clock_tick_4mcycle();
+                self.cycle_count -= 4;
             }
         }
     }
