@@ -166,11 +166,13 @@ pub const HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34: usize = 0xFF77;
 pub const HWREG_IE_INTTERUPT_ENABLE: usize = 0xFFFF;
 
 /// SM83エミュレータ
-pub struct SM83 {
+pub struct SM83<'a> {
     /// レジスタ
     pub regs: SM83Registers,
     /// 64KBメモリ領域
     pub mem: [u8; 65536],
+    /// ROM
+    pub rom: &'a [u8],
     /// RAMゲートレジスタ
     ramg: u8,
     /// MBC1バンクレジスタ1
@@ -179,15 +181,18 @@ pub struct SM83 {
     mbc1_bank2: u8,
     /// MBC1モードレジスタ
     mbc1_mode: u8,
-    /// ROMバンク番号
-    rom_bank_number: u8,
     /// IMEフラグ
     pub ime_flag: bool,
 }
 
-impl SM83 {
+impl<'a> SM83<'a> {
     /// コンストラクタ
-    pub fn new() -> Self {
+    pub fn new(rom: &'a [u8]) -> Self {
+        // ROMはBANK0のサイズ(0x4000)以上かつバンクのサイズ0x4000の倍数であることを要求
+        // ROMの先頭0x4000バイトはBANK0に置かれる
+        // ROMを配置する側が適切にサイズ調整し、残った領域は0埋めする
+        debug_assert!(rom.len() >= 0x4000);
+        debug_assert!((rom.len() % 0x4000) == 0);
         Self {
             regs: SM83Registers {
                 a: 0,
@@ -205,8 +210,8 @@ impl SM83 {
             mbc1_bank1: 1,
             mbc1_bank2: 0,
             mbc1_mode: 0,
-            rom_bank_number: 0,
             mem: [0; 65536],
+            rom: rom,
             ime_flag: false,
         }
     }
@@ -279,9 +284,10 @@ impl SM83 {
 
     /// ROMバンクの切り替え(MBC1)
     fn switch_rom_bank_mbc1(&mut self) {
-        // バンク番号の切り替え
-        self.rom_bank_number = (self.mbc1_bank2 << 5) | (self.mbc1_bank1);
-        // TODO: コールバックでユーザーに切り替えさせるのがいいかも
+        let bank_number = (self.mbc1_bank2 << 5) | (self.mbc1_bank1);
+        let offset = (bank_number as usize - 1) * 0x4000;
+        self.mem[ROM_BANK1_START_ADDRESS..(ROM_BANK1_START_ADDRESS + 0x4000)]
+            .copy_from_slice(&self.rom[offset..(offset + 0x4000)]);
     }
 
     /// ステップ実行
@@ -309,30 +315,31 @@ impl SM83 {
             if self.mbc1_bank1 == 0 {
                 self.mbc1_bank1 = 1;
             }
-            // TODO: ROMバンクスイッチ
+            self.switch_rom_bank_mbc1();
         } else if (address >= BANK2_START_ADDRESS) && (address < MODE_START_ADDRESS) {
             self.mbc1_bank2 = value & 0x3;
-            // TODO: ROMバンクスイッチ
+            self.switch_rom_bank_mbc1();
         } else if (address >= MODE_START_ADDRESS) && (address < VRAM_START_ADDRESS) {
             self.mbc1_mode = value & 0x1;
-            // TODO: ROM/RAMバンクスイッチ
+            self.switch_rom_bank_mbc1();
+            // TODO: RAMバンクスイッチ
         } else if (address >= EXTERNAL_RAM_START_ADDRESS) && (address < WRAM_BANK0_START_ADDRESS) {
             // 外部RAM
             // RAMGが特定の値のみ有効
             if self.ramg == 0xA {
                 self.mem[address] = value;
             }
-        } else if (address >=  WRAM_BANK0_START_ADDRESS) && (address < ECHO_RAM_START_ADDRESS) {
+        } else if (address >= WRAM_BANK0_START_ADDRESS) && (address < ECHO_RAM_START_ADDRESS) {
             // RAM
             self.mem[address] = value;
         } else if (address >= HWREG_P1_JOYPAD) && (address < HRAM_START_ADDRESS) {
             // ハードウェアレジスタへの書き込み
             match address {
-                _ => todo!("unimplemented!"),
+                _ => {}
             }
             // 書き込み値は保持しておく
             self.mem[address] = value;
-        } else if (address >= HRAM_START_ADDRESS) {
+        } else if address >= HRAM_START_ADDRESS {
             // HRAM
             self.mem[address] = value;
         }
@@ -1000,6 +1007,7 @@ impl SM83 {
                 SM83Oprand::A16 { a16 } => {
                     self.push_stack(((self.regs.pc >> 8) & 0xFF) as u8);
                     self.push_stack(((self.regs.pc >> 0) & 0xFF) as u8);
+                    self.regs.pc = *a16;
                     6
                 }
                 _ => unreachable!("Invalid oprand!"),
@@ -1130,7 +1138,6 @@ impl SM83 {
                 warn!("execute STOP instruction");
                 1
             }
-            _ => panic!("Invalid opcode: {:?}", opcode),
         }
     }
 
