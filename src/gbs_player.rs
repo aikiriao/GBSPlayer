@@ -2,32 +2,33 @@ use crate::gbs_file::*;
 use crate::sm83::*;
 use crate::types::*;
 
-pub struct GBSPlayer {
-    cpu: SM83,
+pub struct GBSPlayer<'a> {
+    cpu: SM83<'a>,
     gbs_header: GBSFileHeader,
 }
 
-impl GBSPlayer {
+impl<'a> GBSPlayer<'a> {
     /// コンストラクタ
-    pub fn new(gbs_header: &GBSFileHeader) -> Self {
+    pub fn new(gbs_header: &GBSFileHeader, rom: &'a [u8]) -> Self {
         Self {
-            cpu: SM83::new(),
+            cpu: SM83::new(rom),
             gbs_header: gbs_header.clone(),
         }
     }
 
     /// ロード
-    pub fn load(&mut self, data: &[u8]) {
-        let load_start = self.gbs_header.load_address as usize;
-        let mut load_end = self.gbs_header.load_address as usize + data.len();
+    pub fn load(&mut self) {
+        let mut load_size = self.cpu.rom.len();
+        assert!(load_size >= 0x4000);
+        assert!((load_size % 0x4000) == 0);
 
-        // 読み出しアドレスの終端がROM領域を飛び出ていたら制限
+        // 読み出しサイズがROM領域を飛び出ていたら制限
         // 残りのメモリはROMバンク切り替えでアクセスする
-        if load_end >= 0x8000 {
-            load_end = 0x8000;
+        if load_size >= 0x8000 {
+            load_size = 0x8000;
         }
 
-        self.cpu.mem[load_start..load_end].copy_from_slice(data);
+        self.cpu.mem[..load_size].copy_from_slice(&self.cpu.rom[..load_size]);
     }
 
     /// 初期化
