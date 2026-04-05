@@ -51,6 +51,79 @@ impl APU {
 
     /// レジスタからの読み出し
     pub fn read_register(&mut self, address: usize) -> u8 {
-        0
+        match address {
+            HWREG_NR10_CHANNEL1_SWEEP => {
+                0
+            }
+            HWREG_NR11_CHANNEL1_LENGTH_TIMER_DURY_CYCLE => {
+                0
+            }
+            HWREG_NR12_CHANNEL1_VOLUME_ENVELOPE => {
+                0
+            }
+            HWREG_NR13_CHANNEL1_PERIOD_LOW => {
+                0
+            }
+            HWREG_NR14_CHANNEL1_PERIOD_HIGH_CONTROL => {
+                0
+            }
+            HWREG_NR21_CHANNEL2_LENGTH_TIMER_DURY_CYCLE => {
+                0
+            }
+            HWREG_NR22_CHANNEL2_VOLUME_ENVELOPE => {
+                0
+            }
+            HWREG_NR23_CHANNEL2_PERIOD_LOW => {
+                0
+            }
+            HWREG_NR24_CHANNEL2_PERIOD_HIGH_CONTROL => {
+                0
+            }
+            HWREG_NR30_CHANNEL3_DAC_ENABLE => {
+                0
+            }
+            HWREG_NR31_CHANNEL3_LENGTH_TIMER => {
+                0
+            }
+            HWREG_NR32_CHANNEL3_OUTPUT_LEVEL => {
+                0
+            }
+            HWREG_NR33_CHANNEL3_PERIOD_LOW => {
+                0
+            }
+            HWREG_NR33_CHANNEL3_PERIOD_HIGH_CONTROL => {
+                0
+            }
+            HWREG_NR41_CHANNEL4_LENGTH_TIMER => {
+                0
+            }
+            HWREG_NR42_CHANNEL4_VOLUME_ENVELOPE => {
+                0
+            }
+            HWREG_NR43_CHANNEL4_FREQUENCY_RANDOMNESS => {
+                0
+            }
+            HWREG_NR44_CHANNEL4_CONTROL => {
+                0
+            }
+            HWREG_NR51_MASTER_VOLUME_VIN_PANNING => {
+                0
+            }
+            HWREG_NR51_SOUND_PANNING => {
+                0
+            }
+            HWREG_NR52_AUDIO_MASTER_CONTROL => {
+                0
+            }
+            HWREG_CHANNEL3_WAVE_PATTERN_RAM_START..(HWREG_CHANNEL3_WAVE_PATTERN_RAM_START + 16) => {
+                // TODO: 再生中にセットすると書き込みは無視される
+                let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
+                (self.wave_ram[smpl + 0] << 4) | (self.wave_ram[smpl + 1])
+            }
+            _ => {
+                // それ以外は0を返す
+                0
+            }
+        }
     }
 }
