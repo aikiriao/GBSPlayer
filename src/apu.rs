@@ -37,7 +37,7 @@ impl APU {
             HWREG_NR51_MASTER_VOLUME_VIN_PANNING => {}
             HWREG_NR51_SOUND_PANNING => {}
             HWREG_NR52_AUDIO_MASTER_CONTROL => {}
-            HWREG_CHANNEL3_WAVE_PATTERN_RAM_START..(HWREG_CHANNEL3_WAVE_PATTERN_RAM_START + 0x10) => {
+            HWREG_CHANNEL3_WAVE_PATTERN_RAM_START..(HWREG_CHANNEL3_WAVE_PATTERN_RAM_START + 16) => {
                 // TODO: 再生中にセットすると書き込みは無視される
                 let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
                 self.wave_ram[smpl + 0] = (value >> 4) & 0xF;
