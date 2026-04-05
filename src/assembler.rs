@@ -80,7 +80,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 SM83Opcode::LD {
                     oprand: SM83Oprand::N8ToR8 {
                         dst: SM83Register8::B,
-                        n8: rom[2],
+                        n8: rom[1],
                     }
                 },
                 2
@@ -161,7 +161,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 SM83Opcode::LD {
                     oprand: SM83Oprand::N8ToR8 {
                         dst: SM83Register8::B,
-                        n8: rom[2],
+                        n8: rom[1],
                     }
                 },
                 2
@@ -232,7 +232,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 SM83Opcode::LD {
                     oprand: SM83Oprand::N8ToR8 {
                         dst: SM83Register8::D,
-                        n8: rom[2],
+                        n8: rom[1],
                     }
                 },
                 2
@@ -311,7 +311,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 SM83Opcode::LD {
                     oprand: SM83Oprand::N8ToR8 {
                         dst: SM83Register8::E,
-                        n8: rom[2],
+                        n8: rom[1],
                     }
                 },
                 2
@@ -393,7 +393,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 SM83Opcode::LD {
                     oprand: SM83Oprand::N8ToR8 {
                         dst: SM83Register8::H,
-                        n8: rom[2],
+                        n8: rom[1],
                     }
                 },
                 2
@@ -475,7 +475,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 SM83Opcode::LD {
                     oprand: SM83Oprand::N8ToR8 {
                         dst: SM83Register8::L,
-                        n8: rom[2],
+                        n8: rom[1],
                     }
                 },
                 2
@@ -557,7 +557,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 SM83Opcode::LD {
                     oprand: SM83Oprand::N8ToR16Indirect {
                         dst: SM83Register16::HL,
-                        n8: rom[2],
+                        n8: rom[1],
                     }
                 },
                 2
@@ -639,7 +639,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 SM83Opcode::LD {
                     oprand: SM83Oprand::N8ToR8 {
                         dst: SM83Register8::A,
-                        n8: rom[2],
+                        n8: rom[1],
                     }
                 },
                 2
