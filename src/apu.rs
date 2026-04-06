@@ -24,6 +24,10 @@ pub struct APU {
     ch_on: [bool; 4],
     /// 各チャンネルのパン
     ch_pan: [Pan; 4],
+    /// マスターボリューム
+    master_volume: [u8; 2],
+    /// VIN（外部音声入力。未使用。現実のタイトルでも未使用）
+    vin: [bool; 2],
     /// 波形RAM 4bit深度 x 32サンプル
     wave_ram: [u8; 32],
 }
@@ -34,6 +38,8 @@ impl APU {
         Self {
             audio_on: false,
             ch_on: [false; 4],
+            master_volume: [0u8; 2],
+            vin: [false; 2],
             ch_pan: [Pan::Center; 4],
             wave_ram: [0u8; 32],
         }
@@ -60,7 +66,12 @@ impl APU {
             HWREG_NR42_CHANNEL4_VOLUME_ENVELOPE => {}
             HWREG_NR43_CHANNEL4_FREQUENCY_RANDOMNESS => {}
             HWREG_NR44_CHANNEL4_CONTROL => {}
-            HWREG_NR50_MASTER_VOLUME_VIN_PANNING => {}
+            HWREG_NR50_MASTER_VOLUME_VIN_PANNING => {
+                self.vin[0] = (value & 0x80) != 0;
+                self.vin[1] = (value & 0x08) != 0;
+                self.master_volume[0] = (value >> 4) & 0x7;
+                self.master_volume[1] = (value >> 0) & 0x7;
+            }
             HWREG_NR51_SOUND_PANNING => {
                 for ch in 0..4 {
                     let left = ((value >> ch) & 0x01) != 0;
@@ -115,7 +126,18 @@ impl APU {
             HWREG_NR42_CHANNEL4_VOLUME_ENVELOPE => 0,
             HWREG_NR43_CHANNEL4_FREQUENCY_RANDOMNESS => 0,
             HWREG_NR44_CHANNEL4_CONTROL => 0,
-            HWREG_NR50_MASTER_VOLUME_VIN_PANNING => 0,
+            HWREG_NR50_MASTER_VOLUME_VIN_PANNING => {
+                let mut ret = 0;
+                if self.vin[0] {
+                    ret |= 0x80;
+                }
+                if self.vin[1] {
+                    ret |= 0x08;
+                }
+                ret |= (self.master_volume[0] << 4);
+                ret |= (self.master_volume[1] << 0);
+                ret
+            }
             HWREG_NR51_SOUND_PANNING => {
                 let mut ret = 0;
                 for ch in 0..4 {
