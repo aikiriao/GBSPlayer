@@ -52,7 +52,7 @@ pub const HWREG_NR43_CHANNEL4_FREQUENCY_RANDOMNESS: usize = 0xFF22;
 /// チャンネル4制御
 pub const HWREG_NR44_CHANNEL4_CONTROL: usize = 0xFF23;
 /// マスターボリューム・外部音声出力のパン
-pub const HWREG_NR51_MASTER_VOLUME_VIN_PANNING: usize = 0xFF24;
+pub const HWREG_NR50_MASTER_VOLUME_VIN_PANNING: usize = 0xFF24;
 /// 各チャンネルのパン
 pub const HWREG_NR51_SOUND_PANNING: usize = 0xFF25;
 /// 全体と各チャンネルのオーディオON/OFF

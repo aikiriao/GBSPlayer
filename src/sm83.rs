@@ -1,6 +1,6 @@
+use crate::apu::*;
 use crate::assembler::*;
 use crate::types::*;
-use crate::apu::*;
 use log::{trace, warn};
 
 /// ゲームボーイのマスタークロック(Hz)
@@ -81,8 +81,8 @@ pub struct SM83<'a> {
     mbc1_bank2: u8,
     /// MBC1モードレジスタ
     mbc1_mode: u8,
-    /// IMEフラグ
-    pub ime_flag: bool,
+    /// IME（割り込み有効）フラグ
+    ime_flag: bool,
     /// タイマー(TIMA)有効か？
     timer_enable: bool,
     /// タイマーが増加するサイクル数 (M-cycle)
@@ -328,7 +328,7 @@ impl<'a> SM83<'a> {
             match address {
                 // TODO: 読み込みに副作用がある可能性
                 HWREG_NR10_CHANNEL1_SWEEP..HWREG_LCDC_LCD_CONTROL => {
-                    return self.apu.read_register(address, value);
+                    return self.apu.read_register(address);
                 }
                 _ => {}
             }
