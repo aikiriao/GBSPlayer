@@ -17,6 +17,58 @@ enum Pan {
     Ignore,
 }
 
+/// デューティ比
+#[derive(Debug, Clone, Copy)]
+enum DutyRatio {
+    /// 12.5%
+    Duty12_5,
+    /// 25%
+    Duty25,
+    /// 50%
+    Duty50,
+    /// 75%
+    Duty75,
+}
+
+/// スイープ（変化）の方向
+#[derive(Debug, Clone, Copy)]
+enum SweepDirection {
+    /// 正
+    Positive,
+    /// 負
+    Negative,
+}
+
+#[derive(Debug)]
+struct PulseGenerator {
+    /// 周期変更頻度
+    period_sweep_pace: u8,
+    /// 周期変更方向
+    period_sweep_direction: SweepDirection,
+    /// 周期変更ステップ
+    period_sweep_step: u8,
+    /// 矩形波のデューティ比
+    duty: DutyRatio,
+    /// 持続時間
+    initial_length_timer: u8,
+    /// 残り時間
+    length_timer: u8,
+    /// 初期ボリューム
+    initial_volume: u8,
+    /// ボリューム現在値
+    volume: u8,
+    /// ボリューム変更頻度
+    volume_sweep_pace: u8,
+    /// ボリューム変更方向
+    volume_sweep_direction: SweepDirection,
+    /// 周期
+    period: u16,
+    /// 持続時間有効か
+    length_enable: bool,
+    /// 再生要求フラグ
+    trigger: bool,
+}
+
 pub struct APU {
     /// オーディオON/OFFフラグ
     audio_on: bool,
@@ -30,6 +82,29 @@ pub struct APU {
     vin: [bool; 2],
     /// 波形RAM 4bit深度 x 32サンプル
     wave_ram: [u8; 32],
+    /// パルスジェネレータ
+    pulse_generator: [PulseGenerator; 2],
+}
+
+impl PulseGenerator {
+    /// コンストラクタ
+    pub fn new() -> Self {
+        Self {
+            period_sweep_pace: 0,
+            period_sweep_direction: SweepDirection::Positive,
+            period_sweep_step: 0,
+            duty: DutyRatio::Duty12_5,
+            initial_length_timer: 0,
+            length_timer: 0,
+            initial_volume: 0,
+            volume: 0,
+            volume_sweep_pace: 0,
+            volume_sweep_direction: SweepDirection::Positive,
+            period: 0,
+            length_enable: false,
+            trigger: false,
+        }
+    }
 }
 
 impl APU {
@@ -42,16 +117,48 @@ impl APU {
             vin: [false; 2],
             ch_pan: [Pan::Center; 4],
             wave_ram: [0u8; 32],
+            pulse_generator: [PulseGenerator::new(), PulseGenerator::new()],
         }
     }
 
     /// レジスタへの書き込み
     pub fn write_register(&mut self, address: usize, value: u8) {
         match address {
-            HWREG_NR10_CHANNEL1_SWEEP => {}
-            HWREG_NR11_CHANNEL1_LENGTH_TIMER_DURY_CYCLE => {}
-            HWREG_NR12_CHANNEL1_VOLUME_ENVELOPE => {}
-            HWREG_NR13_CHANNEL1_PERIOD_LOW => {}
+            HWREG_NR10_CHANNEL1_SWEEP => {
+                let pg = &mut self.pulse_generator[0];
+                pg.period_sweep_pace = (value >> 4) & 0x7;
+                pg.period_sweep_direction = if (value & 0x8) == 0 {
+                    SweepDirection::Positive
+                } else {
+                    SweepDirection::Negative
+                };
+                pg.period_sweep_step = value & 0x7;
+            }
+            HWREG_NR11_CHANNEL1_LENGTH_TIMER_DURY_CYCLE => {
+                let pg = &mut self.pulse_generator[0];
+                pg.duty = match (value >> 5) & 0x3 {
+                    0 => DutyRatio::Duty12_5,
+                    1 => DutyRatio::Duty25,
+                    2 => DutyRatio::Duty50,
+                    3 => DutyRatio::Duty75,
+                    _ => unreachable!(),
+                };
+                pg.initial_length_timer = value & 0x1F;
+            }
+            HWREG_NR12_CHANNEL1_VOLUME_ENVELOPE => {
+                let pg = &mut self.pulse_generator[0];
+                pg.initial_volume = (value >> 4) & 0xF;
+                pg.volume_sweep_direction = if (value & 0x8) == 0 {
+                    SweepDirection::Positive
+                } else {
+                    SweepDirection::Negative
+                };
+                pg.volume_sweep_pace = value & 0x7;
+            }
+            HWREG_NR13_CHANNEL1_PERIOD_LOW => {
+                let pg = &mut self.pulse_generator[0];
+                pg.period = (pg.period & 0xFF00) | (value as u16);
+            }
             HWREG_NR14_CHANNEL1_PERIOD_HIGH_CONTROL => {}
             HWREG_NR21_CHANNEL2_LENGTH_TIMER_DURY_CYCLE => {}
             HWREG_NR22_CHANNEL2_VOLUME_ENVELOPE => {}
@@ -108,10 +215,44 @@ impl APU {
     /// レジスタからの読み出し
     pub fn read_register(&mut self, address: usize) -> u8 {
         match address {
-            HWREG_NR10_CHANNEL1_SWEEP => 0,
-            HWREG_NR11_CHANNEL1_LENGTH_TIMER_DURY_CYCLE => 0,
-            HWREG_NR12_CHANNEL1_VOLUME_ENVELOPE => 0,
-            HWREG_NR13_CHANNEL1_PERIOD_LOW => 0,
+            HWREG_NR10_CHANNEL1_SWEEP => {
+                let pg = &self.pulse_generator[0];
+                let mut ret = 0;
+                ret |= pg.period_sweep_pace << 4;
+                ret |= match pg.period_sweep_direction {
+                    SweepDirection::Positive => 0,
+                    SweepDirection::Negative => 0x8,
+                };
+                ret |= pg.period_sweep_step;
+                ret
+            }
+            HWREG_NR11_CHANNEL1_LENGTH_TIMER_DURY_CYCLE => {
+                let pg = &self.pulse_generator[0];
+                let mut ret = 0;
+                ret |= match pg.duty {
+                    DutyRatio::Duty12_5 => 0 << 5,
+                    DutyRatio::Duty25 => 1 << 5,
+                    DutyRatio::Duty50 => 2 << 5,
+                    DutyRatio::Duty75 => 3 << 5,
+                };
+                ret |= pg.initial_length_timer;
+                ret
+            }
+            HWREG_NR12_CHANNEL1_VOLUME_ENVELOPE => {
+                let pg = &self.pulse_generator[0];
+                let mut ret = 0;
+                ret |= pg.initial_volume << 4;
+                ret |= match pg.volume_sweep_direction {
+                    SweepDirection::Positive => 0 << 3,
+                    SweepDirection::Negative => 1 << 3,
+                };
+                ret |= pg.volume_sweep_pace;
+                ret
+            }
+            HWREG_NR13_CHANNEL1_PERIOD_LOW => {
+                let pg = &self.pulse_generator[0];
+                (pg.period & 0x00FF) as u8
+            }
             HWREG_NR14_CHANNEL1_PERIOD_HIGH_CONTROL => 0,
             HWREG_NR21_CHANNEL2_LENGTH_TIMER_DURY_CYCLE => 0,
             HWREG_NR22_CHANNEL2_VOLUME_ENVELOPE => 0,
@@ -134,8 +275,8 @@ impl APU {
                 if self.vin[1] {
                     ret |= 0x08;
                 }
-                ret |= (self.master_volume[0] << 4);
-                ret |= (self.master_volume[1] << 0);
+                ret |= self.master_volume[0] << 4;
+                ret |= self.master_volume[1] << 0;
                 ret
             }
             HWREG_NR51_SOUND_PANNING => {
