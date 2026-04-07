@@ -159,7 +159,12 @@ impl APU {
                 let pg = &mut self.pulse_generator[0];
                 pg.period = (pg.period & 0xFF00) | (value as u16);
             }
-            HWREG_NR14_CHANNEL1_PERIOD_HIGH_CONTROL => {}
+            HWREG_NR14_CHANNEL1_PERIOD_HIGH_CONTROL => {
+                let pg = &mut self.pulse_generator[0];
+                pg.period = (((value & 0x7) as u16) << 8) | (pg.period & 0x00FF);
+                pg.length_enable = (value & 0x40) != 0;
+                pg.trigger = (value & 0x80) != 0;
+            }
             HWREG_NR21_CHANNEL2_LENGTH_TIMER_DURY_CYCLE => {}
             HWREG_NR22_CHANNEL2_VOLUME_ENVELOPE => {}
             HWREG_NR23_CHANNEL2_PERIOD_LOW => {}
@@ -253,7 +258,14 @@ impl APU {
                 let pg = &self.pulse_generator[0];
                 (pg.period & 0x00FF) as u8
             }
-            HWREG_NR14_CHANNEL1_PERIOD_HIGH_CONTROL => 0,
+            HWREG_NR14_CHANNEL1_PERIOD_HIGH_CONTROL => {
+                let pg = &self.pulse_generator[0];
+                let mut ret = 0;
+                ret |= (pg.period & 0x7) as u8;
+                ret |= if pg.length_enable { 0x40 } else { 0 };
+                ret |= if pg.trigger { 0x80 } else { 0 };
+                ret
+            }
             HWREG_NR21_CHANNEL2_LENGTH_TIMER_DURY_CYCLE => 0,
             HWREG_NR22_CHANNEL2_VOLUME_ENVELOPE => 0,
             HWREG_NR23_CHANNEL2_PERIOD_LOW => 0,
