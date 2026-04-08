@@ -39,6 +39,7 @@ enum SweepDirection {
     Negative,
 }
 
+/// CH1/CH2: パルス（矩形波）ジェネレータ
 #[derive(Debug)]
 struct PulseGenerator {
     /// 周期変更頻度
@@ -69,6 +70,14 @@ struct PulseGenerator {
     trigger: bool,
 }
 
+/// CH3: サンプルジェネレータ
+#[derive(Debug)]
+struct SampleGenerator {
+    /// 波形RAM 4bit深度 x 32サンプル
+    wave_ram: [u8; 32],
+}
+
+/// Audio Processing Unit
 pub struct APU {
     /// オーディオON/OFFフラグ
     audio_on: bool,
@@ -80,15 +89,15 @@ pub struct APU {
     master_volume: [u8; 2],
     /// VIN（外部音声入力。未使用。現実のタイトルでも未使用）
     vin: [bool; 2],
-    /// 波形RAM 4bit深度 x 32サンプル
-    wave_ram: [u8; 32],
     /// パルスジェネレータ
     pulse_generator: [PulseGenerator; 2],
+    /// サンプルジェネレータ
+    sample_generator: SampleGenerator,
 }
 
 impl PulseGenerator {
     /// コンストラクタ
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             period_sweep_pace: 0,
             period_sweep_direction: SweepDirection::Positive,
@@ -105,6 +114,112 @@ impl PulseGenerator {
             trigger: false,
         }
     }
+
+    /// スイープの設定
+    fn set_sweep(&mut self, value: u8) {
+        self.period_sweep_pace = (value >> 4) & 0x7;
+        self.period_sweep_direction = if (value & 0x8) == 0 {
+            SweepDirection::Positive
+        } else {
+            SweepDirection::Negative
+        };
+        self.period_sweep_step = value & 0x7;
+    }
+
+    /// 長さタイマー・デューティの設定
+    fn set_length_timer_duty_cycle(&mut self, value: u8) {
+        self.duty = match (value >> 5) & 0x3 {
+            0 => DutyRatio::Duty12_5,
+            1 => DutyRatio::Duty25,
+            2 => DutyRatio::Duty50,
+            3 => DutyRatio::Duty75,
+            _ => unreachable!(),
+        };
+        self.initial_length_timer = value & 0x1F;
+    }
+
+    /// ボリューム・エンベロープ設定
+    fn set_volume_envelope(&mut self, value: u8) {
+        self.initial_volume = (value >> 4) & 0xF;
+        self.volume_sweep_direction = if (value & 0x8) == 0 {
+            SweepDirection::Positive
+        } else {
+            SweepDirection::Negative
+        };
+        self.volume_sweep_pace = value & 0x7;
+    }
+
+    /// 周期下位ビット設定
+    fn set_period_low(&mut self, value: u8) {
+        self.period = (self.period & 0xFF00) | (value as u16);
+    }
+
+    /// 周期上位ビット・制御フラグ設定
+    fn set_period_high_control(&mut self, value: u8) {
+        self.period = (((value & 0x7) as u16) << 8) | (self.period & 0x00FF);
+        self.length_enable = (value & 0x40) != 0;
+        self.trigger = (value & 0x80) != 0;
+    }
+
+    /// スイープ設定値の取得
+    fn get_sweep(&self) -> u8 {
+        let mut ret = 0;
+        ret |= self.period_sweep_pace << 4;
+        ret |= match self.period_sweep_direction {
+            SweepDirection::Positive => 0,
+            SweepDirection::Negative => 0x8,
+        };
+        ret |= self.period_sweep_step;
+        ret
+    }
+
+    /// 長さタイマー・デューティ設定値の取得
+    fn get_length_timer_duty_cycle(&self) -> u8 {
+        let mut ret = 0;
+        ret |= match self.duty {
+            DutyRatio::Duty12_5 => 0 << 5,
+            DutyRatio::Duty25 => 1 << 5,
+            DutyRatio::Duty50 => 2 << 5,
+            DutyRatio::Duty75 => 3 << 5,
+        };
+        ret |= self.initial_length_timer;
+        ret
+    }
+
+    /// ボリューム・エンベロープ設定値の取得
+    fn get_volume_envelope(&self) -> u8 {
+        let mut ret = 0;
+        ret |= self.initial_volume << 4;
+        ret |= match self.volume_sweep_direction {
+            SweepDirection::Positive => 0 << 3,
+            SweepDirection::Negative => 1 << 3,
+        };
+        ret |= self.volume_sweep_pace;
+        ret
+    }
+
+    /// 周期下位ビット設定値の取得
+    fn get_period_low(&self) -> u8 {
+        (self.period & 0x00FF) as u8
+    }
+
+    /// 周期上位ビット・制御フラグ設定値の取得
+    fn get_period_high_control(&self) -> u8 {
+        let mut ret = 0;
+        ret |= (self.period & 0x7) as u8;
+        ret |= if self.length_enable { 0x40 } else { 0 };
+        ret |= if self.trigger { 0x80 } else { 0 };
+        ret
+    }
+}
+
+impl SampleGenerator {
+    /// コンストラクタ
+    pub fn new() -> Self {
+        Self {
+            wave_ram: [0u8; 32],
+        }
+    }
 }
 
 impl APU {
@@ -116,7 +231,7 @@ impl APU {
             master_volume: [0u8; 2],
             vin: [false; 2],
             ch_pan: [Pan::Center; 4],
-            wave_ram: [0u8; 32],
+            sample_generator: SampleGenerator::new(),
             pulse_generator: [PulseGenerator::new(), PulseGenerator::new()],
         }
     }
@@ -125,50 +240,32 @@ impl APU {
     pub fn write_register(&mut self, address: usize, value: u8) {
         match address {
             HWREG_NR10_CHANNEL1_SWEEP => {
-                let pg = &mut self.pulse_generator[0];
-                pg.period_sweep_pace = (value >> 4) & 0x7;
-                pg.period_sweep_direction = if (value & 0x8) == 0 {
-                    SweepDirection::Positive
-                } else {
-                    SweepDirection::Negative
-                };
-                pg.period_sweep_step = value & 0x7;
+                self.pulse_generator[0].set_sweep(value);
             }
             HWREG_NR11_CHANNEL1_LENGTH_TIMER_DURY_CYCLE => {
-                let pg = &mut self.pulse_generator[0];
-                pg.duty = match (value >> 5) & 0x3 {
-                    0 => DutyRatio::Duty12_5,
-                    1 => DutyRatio::Duty25,
-                    2 => DutyRatio::Duty50,
-                    3 => DutyRatio::Duty75,
-                    _ => unreachable!(),
-                };
-                pg.initial_length_timer = value & 0x1F;
+                self.pulse_generator[0].set_length_timer_duty_cycle(value)
             }
             HWREG_NR12_CHANNEL1_VOLUME_ENVELOPE => {
-                let pg = &mut self.pulse_generator[0];
-                pg.initial_volume = (value >> 4) & 0xF;
-                pg.volume_sweep_direction = if (value & 0x8) == 0 {
-                    SweepDirection::Positive
-                } else {
-                    SweepDirection::Negative
-                };
-                pg.volume_sweep_pace = value & 0x7;
+                self.pulse_generator[0].set_volume_envelope(value);
             }
             HWREG_NR13_CHANNEL1_PERIOD_LOW => {
-                let pg = &mut self.pulse_generator[0];
-                pg.period = (pg.period & 0xFF00) | (value as u16);
+                self.pulse_generator[0].set_period_low(value);
             }
             HWREG_NR14_CHANNEL1_PERIOD_HIGH_CONTROL => {
-                let pg = &mut self.pulse_generator[0];
-                pg.period = (((value & 0x7) as u16) << 8) | (pg.period & 0x00FF);
-                pg.length_enable = (value & 0x40) != 0;
-                pg.trigger = (value & 0x80) != 0;
+                self.pulse_generator[0].set_period_high_control(value);
             }
-            HWREG_NR21_CHANNEL2_LENGTH_TIMER_DURY_CYCLE => {}
-            HWREG_NR22_CHANNEL2_VOLUME_ENVELOPE => {}
-            HWREG_NR23_CHANNEL2_PERIOD_LOW => {}
-            HWREG_NR24_CHANNEL2_PERIOD_HIGH_CONTROL => {}
+            HWREG_NR21_CHANNEL2_LENGTH_TIMER_DURY_CYCLE => {
+                self.pulse_generator[1].set_sweep(value);
+            }
+            HWREG_NR22_CHANNEL2_VOLUME_ENVELOPE => {
+                self.pulse_generator[1].set_volume_envelope(value);
+            }
+            HWREG_NR23_CHANNEL2_PERIOD_LOW => {
+                self.pulse_generator[1].set_period_low(value);
+            }
+            HWREG_NR24_CHANNEL2_PERIOD_HIGH_CONTROL => {
+                self.pulse_generator[1].set_period_high_control(value);
+            }
             HWREG_NR30_CHANNEL3_DAC_ENABLE => {}
             HWREG_NR31_CHANNEL3_LENGTH_TIMER => {}
             HWREG_NR32_CHANNEL3_OUTPUT_LEVEL => {}
@@ -206,10 +303,11 @@ impl APU {
                 }
             }
             HWREG_CHANNEL3_WAVE_PATTERN_RAM_START..HWREG_CHANNEL3_WAVE_PATTERN_RAM_END => {
+                let wg = &mut self.sample_generator;
                 // TODO: 再生中にセットすると書き込みは無視される
                 let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
-                self.wave_ram[smpl + 0] = (value >> 4) & 0xF;
-                self.wave_ram[smpl + 1] = (value >> 0) & 0xF;
+                wg.wave_ram[smpl + 0] = (value >> 4) & 0xF;
+                wg.wave_ram[smpl + 1] = (value >> 0) & 0xF;
             }
             _ => {
                 // それ以外は無視
@@ -220,56 +318,23 @@ impl APU {
     /// レジスタからの読み出し
     pub fn read_register(&mut self, address: usize) -> u8 {
         match address {
-            HWREG_NR10_CHANNEL1_SWEEP => {
-                let pg = &self.pulse_generator[0];
-                let mut ret = 0;
-                ret |= pg.period_sweep_pace << 4;
-                ret |= match pg.period_sweep_direction {
-                    SweepDirection::Positive => 0,
-                    SweepDirection::Negative => 0x8,
-                };
-                ret |= pg.period_sweep_step;
-                ret
-            }
+            HWREG_NR10_CHANNEL1_SWEEP => self.pulse_generator[0].get_sweep(),
             HWREG_NR11_CHANNEL1_LENGTH_TIMER_DURY_CYCLE => {
-                let pg = &self.pulse_generator[0];
-                let mut ret = 0;
-                ret |= match pg.duty {
-                    DutyRatio::Duty12_5 => 0 << 5,
-                    DutyRatio::Duty25 => 1 << 5,
-                    DutyRatio::Duty50 => 2 << 5,
-                    DutyRatio::Duty75 => 3 << 5,
-                };
-                ret |= pg.initial_length_timer;
-                ret
+                self.pulse_generator[0].get_length_timer_duty_cycle()
             }
-            HWREG_NR12_CHANNEL1_VOLUME_ENVELOPE => {
-                let pg = &self.pulse_generator[0];
-                let mut ret = 0;
-                ret |= pg.initial_volume << 4;
-                ret |= match pg.volume_sweep_direction {
-                    SweepDirection::Positive => 0 << 3,
-                    SweepDirection::Negative => 1 << 3,
-                };
-                ret |= pg.volume_sweep_pace;
-                ret
-            }
-            HWREG_NR13_CHANNEL1_PERIOD_LOW => {
-                let pg = &self.pulse_generator[0];
-                (pg.period & 0x00FF) as u8
-            }
+            HWREG_NR12_CHANNEL1_VOLUME_ENVELOPE => self.pulse_generator[0].get_volume_envelope(),
+            HWREG_NR13_CHANNEL1_PERIOD_LOW => self.pulse_generator[0].get_period_low(),
             HWREG_NR14_CHANNEL1_PERIOD_HIGH_CONTROL => {
-                let pg = &self.pulse_generator[0];
-                let mut ret = 0;
-                ret |= (pg.period & 0x7) as u8;
-                ret |= if pg.length_enable { 0x40 } else { 0 };
-                ret |= if pg.trigger { 0x80 } else { 0 };
-                ret
+                self.pulse_generator[0].get_period_high_control()
             }
-            HWREG_NR21_CHANNEL2_LENGTH_TIMER_DURY_CYCLE => 0,
-            HWREG_NR22_CHANNEL2_VOLUME_ENVELOPE => 0,
-            HWREG_NR23_CHANNEL2_PERIOD_LOW => 0,
-            HWREG_NR24_CHANNEL2_PERIOD_HIGH_CONTROL => 0,
+            HWREG_NR21_CHANNEL2_LENGTH_TIMER_DURY_CYCLE => {
+                self.pulse_generator[1].get_length_timer_duty_cycle()
+            }
+            HWREG_NR22_CHANNEL2_VOLUME_ENVELOPE => self.pulse_generator[1].get_volume_envelope(),
+            HWREG_NR23_CHANNEL2_PERIOD_LOW => self.pulse_generator[1].get_period_low(),
+            HWREG_NR24_CHANNEL2_PERIOD_HIGH_CONTROL => {
+                self.pulse_generator[1].get_period_high_control()
+            }
             HWREG_NR30_CHANNEL3_DAC_ENABLE => 0,
             HWREG_NR31_CHANNEL3_LENGTH_TIMER => 0,
             HWREG_NR32_CHANNEL3_OUTPUT_LEVEL => 0,
@@ -321,9 +386,10 @@ impl APU {
                 ret
             }
             HWREG_CHANNEL3_WAVE_PATTERN_RAM_START..HWREG_CHANNEL3_WAVE_PATTERN_RAM_END => {
+                let wg = &self.sample_generator;
                 // TODO: 再生中に読み出すと0xFFを返す
                 let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
-                (self.wave_ram[smpl + 0] << 4) | (self.wave_ram[smpl + 1])
+                (wg.wave_ram[smpl + 0] << 4) | (wg.wave_ram[smpl + 1])
             }
             _ => {
                 // それ以外は0を返す
