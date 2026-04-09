@@ -73,6 +73,14 @@ struct PulseGenerator {
 /// CH3: サンプルジェネレータ
 #[derive(Debug)]
 struct SampleGenerator {
+    /// DAC有効か
+    dac_enable: bool,
+    /// 持続時間
+    initial_length_timer: u8,
+    /// 残り時間
+    length_timer: u8,
+    /// 出力レベル右シフト量
+    output_level_shift: u8,
     /// 波形RAM 4bit深度 x 32サンプル
     wave_ram: [u8; 32],
 }
@@ -217,7 +225,57 @@ impl SampleGenerator {
     /// コンストラクタ
     pub fn new() -> Self {
         Self {
+            dac_enable: false,
+            initial_length_timer: 0,
+            length_timer: 0,
+            output_level_shift: 0,
             wave_ram: [0u8; 32],
+        }
+    }
+
+    /// DACのON/OFF
+    fn set_dac_enable(&mut self, value: u8) {
+        self.dac_enable = (value & 0x80) != 0;
+    }
+
+    /// 長さタイマーの設定
+    fn set_length_timer(&mut self, value: u8) {
+        self.initial_length_timer = value;
+    }
+
+    /// 出力レベルの設定
+    fn set_output_level(&mut self, value: u8) {
+        self.output_level_shift = match (value >> 4) & 0x3 {
+            0 => 4,
+            1 => 0,
+            2 => 1,
+            3 => 2,
+            _ => unreachable!(),
+        }
+    }
+
+    /// DACのON/OFF
+    fn get_dac_enable(&self) -> u8 {
+        if self.dac_enable {
+            0x80
+        } else {
+            0x00
+        }
+    }
+
+    /// 長さタイマーの取得
+    fn get_length_timer(&self) -> u8 {
+        self.initial_length_timer
+    }
+
+    /// 出力レベルの設定
+    fn get_output_level(&self) -> u8 {
+        match self.output_level_shift {
+            4 => 0 << 4,
+            0 => 1 << 4,
+            1 => 2 << 4,
+            2 => 3 << 4,
+            _ => unreachable!(),
         }
     }
 }
@@ -266,9 +324,15 @@ impl APU {
             HWREG_NR24_CHANNEL2_PERIOD_HIGH_CONTROL => {
                 self.pulse_generator[1].set_period_high_control(value);
             }
-            HWREG_NR30_CHANNEL3_DAC_ENABLE => {}
-            HWREG_NR31_CHANNEL3_LENGTH_TIMER => {}
-            HWREG_NR32_CHANNEL3_OUTPUT_LEVEL => {}
+            HWREG_NR30_CHANNEL3_DAC_ENABLE => {
+                self.sample_generator.set_dac_enable(value);
+            }
+            HWREG_NR31_CHANNEL3_LENGTH_TIMER => {
+                self.sample_generator.set_length_timer(value);
+            }
+            HWREG_NR32_CHANNEL3_OUTPUT_LEVEL => {
+                self.sample_generator.set_output_level(value);
+            }
             HWREG_NR33_CHANNEL3_PERIOD_LOW => {}
             HWREG_NR33_CHANNEL3_PERIOD_HIGH_CONTROL => {}
             HWREG_NR41_CHANNEL4_LENGTH_TIMER => {}
@@ -335,9 +399,9 @@ impl APU {
             HWREG_NR24_CHANNEL2_PERIOD_HIGH_CONTROL => {
                 self.pulse_generator[1].get_period_high_control()
             }
-            HWREG_NR30_CHANNEL3_DAC_ENABLE => 0,
-            HWREG_NR31_CHANNEL3_LENGTH_TIMER => 0,
-            HWREG_NR32_CHANNEL3_OUTPUT_LEVEL => 0,
+            HWREG_NR30_CHANNEL3_DAC_ENABLE => self.sample_generator.get_dac_enable(),
+            HWREG_NR31_CHANNEL3_LENGTH_TIMER => self.sample_generator.get_length_timer(),
+            HWREG_NR32_CHANNEL3_OUTPUT_LEVEL => self.sample_generator.get_output_level(),
             HWREG_NR33_CHANNEL3_PERIOD_LOW => 0,
             HWREG_NR33_CHANNEL3_PERIOD_HIGH_CONTROL => 0,
             HWREG_NR41_CHANNEL4_LENGTH_TIMER => 0,
