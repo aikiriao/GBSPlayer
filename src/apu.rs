@@ -81,6 +81,12 @@ struct SampleGenerator {
     length_timer: u8,
     /// 出力レベル右シフト量
     output_level_shift: u8,
+    /// 周期
+    period: u16,
+    /// 持続時間有効か
+    length_enable: bool,
+    /// 再生要求フラグ
+    trigger: bool,
     /// 波形RAM 4bit深度 x 32サンプル
     wave_ram: [u8; 32],
 }
@@ -229,6 +235,9 @@ impl SampleGenerator {
             initial_length_timer: 0,
             length_timer: 0,
             output_level_shift: 0,
+            length_enable: false,
+            period: 0,
+            trigger: false,
             wave_ram: [0u8; 32],
         }
     }
@@ -254,6 +263,18 @@ impl SampleGenerator {
         }
     }
 
+    /// 周期下位ビット設定
+    fn set_period_low(&mut self, value: u8) {
+        self.period = (self.period & 0xFF00) | (value as u16);
+    }
+
+    /// 周期上位ビット・制御フラグ設定
+    fn set_period_high_control(&mut self, value: u8) {
+        self.period = (((value & 0x7) as u16) << 8) | (self.period & 0x00FF);
+        self.length_enable = (value & 0x40) != 0;
+        self.trigger = (value & 0x80) != 0;
+    }
+
     /// DACのON/OFF
     fn get_dac_enable(&self) -> u8 {
         if self.dac_enable {
@@ -277,6 +298,20 @@ impl SampleGenerator {
             2 => 3 << 4,
             _ => unreachable!(),
         }
+    }
+
+    /// 周期下位ビット設定値の取得
+    fn get_period_low(&self) -> u8 {
+        (self.period & 0x00FF) as u8
+    }
+
+    /// 周期上位ビット・制御フラグ設定値の取得
+    fn get_period_high_control(&self) -> u8 {
+        let mut ret = 0;
+        ret |= (self.period & 0x7) as u8;
+        ret |= if self.length_enable { 0x40 } else { 0 };
+        ret |= if self.trigger { 0x80 } else { 0 };
+        ret
     }
 }
 
@@ -333,8 +368,12 @@ impl APU {
             HWREG_NR32_CHANNEL3_OUTPUT_LEVEL => {
                 self.sample_generator.set_output_level(value);
             }
-            HWREG_NR33_CHANNEL3_PERIOD_LOW => {}
-            HWREG_NR33_CHANNEL3_PERIOD_HIGH_CONTROL => {}
+            HWREG_NR33_CHANNEL3_PERIOD_LOW => {
+                self.sample_generator.set_period_low(value);
+            }
+            HWREG_NR33_CHANNEL3_PERIOD_HIGH_CONTROL => {
+                self.sample_generator.set_period_high_control(value);
+            }
             HWREG_NR41_CHANNEL4_LENGTH_TIMER => {}
             HWREG_NR42_CHANNEL4_VOLUME_ENVELOPE => {}
             HWREG_NR43_CHANNEL4_FREQUENCY_RANDOMNESS => {}
@@ -402,8 +441,10 @@ impl APU {
             HWREG_NR30_CHANNEL3_DAC_ENABLE => self.sample_generator.get_dac_enable(),
             HWREG_NR31_CHANNEL3_LENGTH_TIMER => self.sample_generator.get_length_timer(),
             HWREG_NR32_CHANNEL3_OUTPUT_LEVEL => self.sample_generator.get_output_level(),
-            HWREG_NR33_CHANNEL3_PERIOD_LOW => 0,
-            HWREG_NR33_CHANNEL3_PERIOD_HIGH_CONTROL => 0,
+            HWREG_NR33_CHANNEL3_PERIOD_LOW => self.sample_generator.get_period_low(),
+            HWREG_NR33_CHANNEL3_PERIOD_HIGH_CONTROL => {
+                self.sample_generator.get_period_high_control()
+            }
             HWREG_NR41_CHANNEL4_LENGTH_TIMER => 0,
             HWREG_NR42_CHANNEL4_VOLUME_ENVELOPE => 0,
             HWREG_NR43_CHANNEL4_FREQUENCY_RANDOMNESS => 0,
@@ -463,8 +504,7 @@ impl APU {
     }
 
     /// 1システムクロック単位で実行される処理
-    pub fn system_clock_tick(&mut self, mem: &mut [u8]) {
-    }
+    pub fn system_clock_tick(&mut self, mem: &mut [u8]) {}
 
     /// 1ステレオサンプル出力
     /// 現在の出力サンプルを元に出力を計算します。サンプリングレート間隔で実行してください
