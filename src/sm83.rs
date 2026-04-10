@@ -336,10 +336,10 @@ impl<'a> SM83<'a> {
         self.mem[address]
     }
 
-    /// 4M-Cycleティック
-    pub fn clock_tick_4mcycle(&mut self) {
+    /// システムクロック(M-Cycle)ティック
+    pub fn system_clock_tick(&mut self) {
         // タイマーティック
-        self.timer_tick_mcycle_count += 4;
+        self.timer_tick_mcycle_count += 1;
         if self.timer_tick_mcycle_count >= self.timer_increment_mcycle {
             if self.timer_enable {
                 let tima = self.mem[HWREG_TIMA_TIMER_COUNTER];
@@ -356,19 +356,22 @@ impl<'a> SM83<'a> {
         }
 
         // DIVレジスタカウントアップ
-        self.div_mcycle_count += 4;
+        self.div_mcycle_count += 1;
         if self.div_mcycle_count >= DIVIDER_RATE_STSTEM_CLOCKS {
             self.mem[HWREG_DIV_REGISTER] = self.mem[HWREG_DIV_REGISTER].wrapping_add(1);
             self.div_mcycle_count -= DIVIDER_RATE_STSTEM_CLOCKS;
         }
 
         // VBLANK
-        self.vblank_mcycle_count += 4.0;
+        self.vblank_mcycle_count += 1.0;
         if self.vblank_mcycle_count >= SYSTEM_CLOCKS_PER_VBLANK {
             // VBLANK割り込み要求フラグを立てる
             self.mem[HWREG_IF_INTERRUPT_FLAG] |= INTERRUPT_FLAG_VBLANK;
             self.vblank_mcycle_count -= SYSTEM_CLOCKS_PER_VBLANK;
         }
+
+        // オーディオ信号処理
+        self.apu.system_clock_tick(&mut self.mem);
     }
 
     /// 16bitメモリ書き込み

@@ -461,4 +461,14 @@ impl APU {
             }
         }
     }
+
+    /// 1システムクロック単位で実行される処理
+    pub fn system_clock_tick(&mut self, mem: &mut [u8]) {
+    }
+
+    /// 1ステレオサンプル出力
+    /// 現在の出力サンプルを元に出力を計算します。サンプリングレート間隔で実行してください
+    pub fn compute_output(&mut self, mem: &[u8]) -> [f32; 2] {
+        [0.0, 0.0]
+    }
 }
