@@ -91,6 +91,42 @@ struct SampleGenerator {
     wave_ram: [u8; 32],
 }
 
+/// LFSRの長さ
+#[derive(Debug)]
+enum LFSRLength {
+    /// 15bit
+    Bit15,
+    /// 7bit
+    Bit7,
+}
+
+/// CH4: ノイズジェネレータ
+#[derive(Debug)]
+struct NoiseGenerator {
+    /// 持続時間
+    initial_length_timer: u8,
+    /// 残り時間
+    length_timer: u8,
+    /// 更新クロックの右シフト量
+    clock_shift: u8,
+    /// 更新クロックの除数
+    clock_divider: u8,
+    /// LFSRの長さ
+    lfsr_length: LFSRLength,
+    /// 初期ボリューム
+    initial_volume: u8,
+    /// ボリューム現在値
+    volume: u8,
+    /// ボリューム変更頻度
+    volume_sweep_pace: u8,
+    /// ボリューム変更方向
+    volume_sweep_direction: SweepDirection,
+    /// 持続時間有効か
+    length_enable: bool,
+    /// 再生要求フラグ
+    trigger: bool,
+}
+
 /// Audio Processing Unit
 pub struct APU {
     /// オーディオON/OFFフラグ
@@ -107,6 +143,8 @@ pub struct APU {
     pulse_generator: [PulseGenerator; 2],
     /// サンプルジェネレータ
     sample_generator: SampleGenerator,
+    /// ノイズジェネレータ
+    noise_generator: NoiseGenerator,
 }
 
 impl PulseGenerator {
@@ -315,6 +353,95 @@ impl SampleGenerator {
     }
 }
 
+impl NoiseGenerator {
+    /// コンストラクタ
+    fn new() -> Self {
+        Self {
+            initial_length_timer: 0,
+            length_timer: 0,
+            clock_shift: 0,
+            clock_divider: 0,
+            lfsr_length: LFSRLength::Bit15,
+            initial_volume: 0,
+            volume: 0,
+            volume_sweep_pace: 0,
+            volume_sweep_direction: SweepDirection::Positive,
+            length_enable: false,
+            trigger: false,
+        }
+    }
+
+    /// 長さタイマーの設定
+    fn set_length_timer(&mut self, value: u8) {
+        self.initial_length_timer = value;
+    }
+
+    /// ボリューム・エンベロープの設定
+    fn set_volume_envelope(&mut self, value: u8) {
+        self.initial_volume = (value >> 4) & 0xF;
+        self.volume_sweep_direction = if (value & 0x8) == 0 {
+            SweepDirection::Positive
+        } else {
+            SweepDirection::Negative
+        };
+        self.volume_sweep_pace = value & 0x7;
+    }
+
+    /// 更新頻度・ランダムネスの設定
+    fn set_frequency_randomness(&mut self, value: u8) {
+        self.clock_shift = ((value >> 4) & 0xF) as u8;
+        self.lfsr_length = if (value & 0x08) == 0 {
+            LFSRLength::Bit15
+        } else {
+            LFSRLength::Bit7
+        };
+        self.clock_divider = value & 0x7;
+    }
+
+    /// 制御フラグ設定
+    fn set_control(&mut self, value: u8) {
+        self.length_enable = (value & 0x40) != 0;
+        self.trigger = (value & 0x80) != 0;
+    }
+
+    /// 長さタイマーの取得
+    fn get_length_timer(&self) -> u8 {
+        self.initial_length_timer
+    }
+
+    /// ボリューム・エンベロープの取得
+    fn get_volume_envelope(&self) -> u8 {
+        let mut ret = 0;
+        ret |= self.initial_volume << 4;
+        ret |= match self.volume_sweep_direction {
+            SweepDirection::Positive => 0x0,
+            SweepDirection::Negative => 0x8,
+        };
+        ret |= self.volume_sweep_pace;
+        ret
+    }
+
+    /// 更新頻度・ランダムネスの取得
+    fn get_frequency_randomness(&self) -> u8 {
+        let mut ret = 0;
+        ret |= self.clock_shift << 4;
+        ret |= match self.lfsr_length {
+            LFSRLength::Bit15 => 0x0,
+            LFSRLength::Bit7 => 0x8,
+        };
+        ret |= self.clock_divider;
+        ret
+    }
+
+    /// 制御フラグ設定
+    fn get_control(&self) -> u8 {
+        let mut ret = 0;
+        ret |= if self.length_enable { 0x40 } else { 0 };
+        ret |= if self.trigger { 0x80 } else { 0 };
+        ret
+    }
+}
+
 impl APU {
     /// コンストラクタ
     pub fn new() -> Self {
@@ -326,6 +453,7 @@ impl APU {
             ch_pan: [Pan::Center; 4],
             sample_generator: SampleGenerator::new(),
             pulse_generator: [PulseGenerator::new(), PulseGenerator::new()],
+            noise_generator: NoiseGenerator::new(),
         }
     }
 
@@ -374,10 +502,18 @@ impl APU {
             HWREG_NR33_CHANNEL3_PERIOD_HIGH_CONTROL => {
                 self.sample_generator.set_period_high_control(value);
             }
-            HWREG_NR41_CHANNEL4_LENGTH_TIMER => {}
-            HWREG_NR42_CHANNEL4_VOLUME_ENVELOPE => {}
-            HWREG_NR43_CHANNEL4_FREQUENCY_RANDOMNESS => {}
-            HWREG_NR44_CHANNEL4_CONTROL => {}
+            HWREG_NR41_CHANNEL4_LENGTH_TIMER => {
+                self.noise_generator.set_length_timer(value);
+            }
+            HWREG_NR42_CHANNEL4_VOLUME_ENVELOPE => {
+                self.noise_generator.set_volume_envelope(value);
+            }
+            HWREG_NR43_CHANNEL4_FREQUENCY_RANDOMNESS => {
+                self.noise_generator.set_frequency_randomness(value);
+            }
+            HWREG_NR44_CHANNEL4_CONTROL => {
+                self.noise_generator.set_control(value);
+            }
             HWREG_NR50_MASTER_VOLUME_VIN_PANNING => {
                 self.vin[0] = (value & 0x80) != 0;
                 self.vin[1] = (value & 0x08) != 0;
@@ -445,10 +581,12 @@ impl APU {
             HWREG_NR33_CHANNEL3_PERIOD_HIGH_CONTROL => {
                 self.sample_generator.get_period_high_control()
             }
-            HWREG_NR41_CHANNEL4_LENGTH_TIMER => 0,
-            HWREG_NR42_CHANNEL4_VOLUME_ENVELOPE => 0,
-            HWREG_NR43_CHANNEL4_FREQUENCY_RANDOMNESS => 0,
-            HWREG_NR44_CHANNEL4_CONTROL => 0,
+            HWREG_NR41_CHANNEL4_LENGTH_TIMER => self.noise_generator.get_length_timer(),
+            HWREG_NR42_CHANNEL4_VOLUME_ENVELOPE => self.noise_generator.get_volume_envelope(),
+            HWREG_NR43_CHANNEL4_FREQUENCY_RANDOMNESS => {
+                self.noise_generator.get_frequency_randomness()
+            }
+            HWREG_NR44_CHANNEL4_CONTROL => self.noise_generator.get_control(),
             HWREG_NR50_MASTER_VOLUME_VIN_PANNING => {
                 let mut ret = 0;
                 if self.vin[0] {

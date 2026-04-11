@@ -245,7 +245,7 @@ impl<'a> SM83<'a> {
                 self.regs.pc = 0x0040 + 8 * i;
                 // RETI命令があるまで実行
                 loop {
-                    let (opcode, cycle) = self.execute_step();
+                    let (opcode, _) = self.execute_step();
                     match opcode {
                         SM83Opcode::RETI => break,
                         _ => {}
