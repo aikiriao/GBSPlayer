@@ -1,7 +1,6 @@
 use crate::envelope_generator::*;
+use crate::length_timer::*;
 use crate::types::*;
-
-const APU_SOUND_LENGTH_PER_SYSTEM_CLOCKS: u32 = DMG_SYSTEM_CLOCK_HZ / APU_SOUND_LENGTH_HZ;
 
 /// LFSRの長さ
 #[derive(Debug)]
@@ -17,20 +16,14 @@ enum LFSRLength {
 pub struct NoiseGenerator {
     /// 有効か？
     pub enable: bool,
-    /// 持続時間
-    initial_length_timer: u8,
-    /// 残り時間
-    length_timer: u8,
-    /// 更新クロックの右シフト量
+    /// 再生要求フラグ
+    trigger: bool,
+    /// LFSR更新クロックの右シフト量
     clock_shift: u8,
-    /// 更新クロックの除数
+    /// LFSR更新クロックの除数
     clock_divider: u8,
     /// LFSRの長さはショートか
     lfsr_short_mode: bool,
-    /// 持続時間有効か
-    length_enable: bool,
-    /// 再生要求フラグ
-    trigger: bool,
     /// LSFRのレジスタ
     lfsr: u16,
     /// LSFRの更新用ビットマスク
@@ -41,6 +34,8 @@ pub struct NoiseGenerator {
     lfsr_update_period: u32,
     /// エンベロープ（ボリューム）ジェネレータ
     eg: EnvelopeGenerator,
+    /// 長さタイマー
+    length_timer: LengthTimer,
 }
 
 impl NoiseGenerator {
@@ -48,24 +43,22 @@ impl NoiseGenerator {
     pub fn new() -> Self {
         Self {
             enable: false,
-            initial_length_timer: 0,
-            length_timer: 0,
+            trigger: false,
             clock_shift: 0,
             clock_divider: 0,
             lfsr_short_mode: false,
-            length_enable: false,
-            trigger: false,
             lfsr: 0,
             lfsr_mask: 0,
             lfsr_clock_count: 0,
             lfsr_update_period: 0,
             eg: EnvelopeGenerator::new(),
+            length_timer: LengthTimer::new(),
         }
     }
 
     /// 長さタイマーの設定
     pub fn set_length_timer(&mut self, value: u8) {
-        self.initial_length_timer = value;
+        self.length_timer.set_length_timer(value, 1 << 2); // CHの4倍の速さで更新
     }
 
     /// ボリューム・エンベロープの設定
@@ -96,7 +89,7 @@ impl NoiseGenerator {
 
     /// 制御フラグ設定
     pub fn set_control(&mut self, value: u8) {
-        self.length_enable = (value & 0x40) != 0;
+        self.length_timer.set_enable((value & 0x40) != 0);
         self.trigger = (value & 0x80) != 0;
         if self.trigger {
             self.process_trigger();
@@ -105,7 +98,7 @@ impl NoiseGenerator {
 
     /// 長さタイマーの取得
     pub fn get_length_timer(&self) -> u8 {
-        self.initial_length_timer
+        self.length_timer.get_initial_length_timer()
     }
 
     /// ボリューム・エンベロープの取得
@@ -125,7 +118,11 @@ impl NoiseGenerator {
     /// 制御フラグ設定
     pub fn get_control(&self) -> u8 {
         let mut ret = 0;
-        ret |= if self.length_enable { 0x40 } else { 0 };
+        ret |= if self.length_timer.get_enable() {
+            0x40
+        } else {
+            0
+        };
         ret |= if self.trigger { 0x80 } else { 0 };
         ret
     }
@@ -135,8 +132,8 @@ impl NoiseGenerator {
         // チャンネルを有効に
         self.enable = true;
         // 長さタイマーが切れていたらリセット
-        if self.length_timer == 0 {
-            self.length_timer = self.initial_length_timer;
+        if self.length_timer.expired {
+            self.length_timer.reset();
         }
         // エンベロープジェネレータのリセット
         self.eg.reset();
@@ -170,7 +167,15 @@ impl NoiseGenerator {
             self.lfsr_clock_count -= self.lfsr_update_period;
         }
 
+        // 長さタイマーが時間切れしていたら無効に
+        if self.length_timer.expired {
+            self.enable = false;
+        }
+
         // エンベロープジェネレータの更新
         self.eg.system_clock_tick();
+
+        // 長さタイマーの更新
+        self.length_timer.system_clock_tick();
     }
 }

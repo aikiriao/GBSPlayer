@@ -5,6 +5,7 @@ pub mod gbs_file;
 pub mod assembler;
 pub mod sm83;
 pub mod gbs_player;
+mod length_timer;
 mod envelope_generator;
 mod noise_generator;
 mod apu;
