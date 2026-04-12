@@ -1,3 +1,17 @@
+// ハードウェア仕様
+/// ゲームボーイのマスタークロック(Hz)
+pub const DMG_MASTER_CLOCK_HZ: u32 = 4194304;
+/// ゲームボーイのシステムクロック(Hz)
+pub const DMG_SYSTEM_CLOCK_HZ: u32 = DMG_MASTER_CLOCK_HZ / 4;
+
+// オーディオ仕様
+/// エンベロープスイープの更新頻度(Hz)
+pub const APU_ENVELOPE_SWEEP_HZ: u32 = 64;
+/// 持続時間タイマーの更新頻度(Hz)
+pub const APU_SOUND_LENGTH_HZ: u32 = 256;
+/// CH1周波数スイープの更新頻度(Hz)
+pub const APU_FREQUENCY_SWEEP_HZ: u32 = 128;
+
 // ハードウェアレジスタアドレス
 /// ジョイパッド
 pub const HWREG_P1_JOYPAD: usize = 0xFF00;
@@ -326,6 +340,15 @@ pub enum SM83Opcode {
     RES { u3: u8, oprand: SM83Oprand },
     /// SET (Set Bit u3 in Register)
     SET { u3: u8, oprand: SM83Oprand },
+}
+
+/// スイープ（変化）の方向
+#[derive(Debug, Clone, Copy)]
+pub enum SweepDirection {
+    /// 正
+    Positive,
+    /// 負
+    Negative,
 }
 
 /// メモリ上にあるデータから16bitデータを読みだす

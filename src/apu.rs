@@ -1,4 +1,5 @@
 use crate::types::*;
+use crate::noise_generator::*;
 use log::{trace, warn};
 
 /// 波形RAM領域終端アドレス
@@ -28,15 +29,6 @@ enum DutyRatio {
     Duty50,
     /// 75%
     Duty75,
-}
-
-/// スイープ（変化）の方向
-#[derive(Debug, Clone, Copy)]
-enum SweepDirection {
-    /// 正
-    Positive,
-    /// 負
-    Negative,
 }
 
 /// CH1/CH2: パルス（矩形波）ジェネレータ
@@ -89,42 +81,6 @@ struct SampleGenerator {
     trigger: bool,
     /// 波形RAM 4bit深度 x 32サンプル
     wave_ram: [u8; 32],
-}
-
-/// LFSRの長さ
-#[derive(Debug)]
-enum LFSRLength {
-    /// 15bit
-    Bit15,
-    /// 7bit
-    Bit7,
-}
-
-/// CH4: ノイズジェネレータ
-#[derive(Debug)]
-struct NoiseGenerator {
-    /// 持続時間
-    initial_length_timer: u8,
-    /// 残り時間
-    length_timer: u8,
-    /// 更新クロックの右シフト量
-    clock_shift: u8,
-    /// 更新クロックの除数
-    clock_divider: u8,
-    /// LFSRの長さ
-    lfsr_length: LFSRLength,
-    /// 初期ボリューム
-    initial_volume: u8,
-    /// ボリューム現在値
-    volume: u8,
-    /// ボリューム変更頻度
-    volume_sweep_pace: u8,
-    /// ボリューム変更方向
-    volume_sweep_direction: SweepDirection,
-    /// 持続時間有効か
-    length_enable: bool,
-    /// 再生要求フラグ
-    trigger: bool,
 }
 
 /// Audio Processing Unit
@@ -353,95 +309,6 @@ impl SampleGenerator {
     }
 }
 
-impl NoiseGenerator {
-    /// コンストラクタ
-    fn new() -> Self {
-        Self {
-            initial_length_timer: 0,
-            length_timer: 0,
-            clock_shift: 0,
-            clock_divider: 0,
-            lfsr_length: LFSRLength::Bit15,
-            initial_volume: 0,
-            volume: 0,
-            volume_sweep_pace: 0,
-            volume_sweep_direction: SweepDirection::Positive,
-            length_enable: false,
-            trigger: false,
-        }
-    }
-
-    /// 長さタイマーの設定
-    fn set_length_timer(&mut self, value: u8) {
-        self.initial_length_timer = value;
-    }
-
-    /// ボリューム・エンベロープの設定
-    fn set_volume_envelope(&mut self, value: u8) {
-        self.initial_volume = (value >> 4) & 0xF;
-        self.volume_sweep_direction = if (value & 0x8) == 0 {
-            SweepDirection::Positive
-        } else {
-            SweepDirection::Negative
-        };
-        self.volume_sweep_pace = value & 0x7;
-    }
-
-    /// 更新頻度・ランダムネスの設定
-    fn set_frequency_randomness(&mut self, value: u8) {
-        self.clock_shift = ((value >> 4) & 0xF) as u8;
-        self.lfsr_length = if (value & 0x08) == 0 {
-            LFSRLength::Bit15
-        } else {
-            LFSRLength::Bit7
-        };
-        self.clock_divider = value & 0x7;
-    }
-
-    /// 制御フラグ設定
-    fn set_control(&mut self, value: u8) {
-        self.length_enable = (value & 0x40) != 0;
-        self.trigger = (value & 0x80) != 0;
-    }
-
-    /// 長さタイマーの取得
-    fn get_length_timer(&self) -> u8 {
-        self.initial_length_timer
-    }
-
-    /// ボリューム・エンベロープの取得
-    fn get_volume_envelope(&self) -> u8 {
-        let mut ret = 0;
-        ret |= self.initial_volume << 4;
-        ret |= match self.volume_sweep_direction {
-            SweepDirection::Positive => 0x0,
-            SweepDirection::Negative => 0x8,
-        };
-        ret |= self.volume_sweep_pace;
-        ret
-    }
-
-    /// 更新頻度・ランダムネスの取得
-    fn get_frequency_randomness(&self) -> u8 {
-        let mut ret = 0;
-        ret |= self.clock_shift << 4;
-        ret |= match self.lfsr_length {
-            LFSRLength::Bit15 => 0x0,
-            LFSRLength::Bit7 => 0x8,
-        };
-        ret |= self.clock_divider;
-        ret
-    }
-
-    /// 制御フラグ設定
-    fn get_control(&self) -> u8 {
-        let mut ret = 0;
-        ret |= if self.length_enable { 0x40 } else { 0 };
-        ret |= if self.trigger { 0x80 } else { 0 };
-        ret
-    }
-}
-
 impl APU {
     /// コンストラクタ
     pub fn new() -> Self {
@@ -642,11 +509,14 @@ impl APU {
     }
 
     /// 1システムクロック単位で実行される処理
-    pub fn system_clock_tick(&mut self, mem: &mut [u8]) {}
+    pub fn system_clock_tick(&mut self, mem: &mut [u8]) {
+
+        self.noise_generator.system_clock_tick(mem);
+    }
 
     /// 1ステレオサンプル出力
     /// 現在の出力サンプルを元に出力を計算します。サンプリングレート間隔で実行してください
-    pub fn compute_output(&mut self, mem: &[u8]) -> [f32; 2] {
+    pub fn compute_output(&mut self) -> [f32; 2] {
         [0.0, 0.0]
     }
 }

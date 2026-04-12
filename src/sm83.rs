@@ -3,10 +3,6 @@ use crate::assembler::*;
 use crate::types::*;
 use log::{trace, warn};
 
-/// ゲームボーイのマスタークロック(Hz)
-const DMG_MASTER_CLOCK_HZ: u32 = 4194304;
-/// ゲームボーイのシステムクロック(Hz)
-const DMG_SYSTEM_CLOCK_HZ: u32 = DMG_MASTER_CLOCK_HZ / 4;
 /// VBlank（垂直同期）間隔(Hz)
 const VBLANK_PERIOD_HZ: f32 = 59.73;
 /// VBlankあたりのシステムクロック数
