@@ -1,9 +1,13 @@
-use crate::types::*;
 use crate::noise_generator::*;
+use crate::types::*;
 use log::{trace, warn};
 
 /// 波形RAM領域終端アドレス
 const HWREG_CHANNEL3_WAVE_PATTERN_RAM_END: usize = HWREG_CHANNEL3_WAVE_PATTERN_RAM_START + 16;
+/// ゲームボーイのHPFの係数基準値
+const DMG_HPF_COEF_BASE: f32 = 0.999958;
+/// ゲームボーイカラーのHPFの係数基準値
+const CGB_HPF_COEF_BASE: f32 = 0.998943;
 
 /// パンニング
 #[derive(Debug, Clone, Copy)]
@@ -95,6 +99,10 @@ pub struct APU {
     master_volume: [u8; 2],
     /// VIN（外部音声入力。未使用。現実のタイトルでも未使用）
     vin: [bool; 2],
+    /// HPFの係数
+    hpf_coef: f32,
+    /// HPFの出力バッファ
+    hpf_buffer: [f32; 2],
     /// パルスジェネレータ
     pulse_generator: [PulseGenerator; 2],
     /// サンプルジェネレータ
@@ -318,6 +326,8 @@ impl APU {
             master_volume: [0u8; 2],
             vin: [false; 2],
             ch_pan: [Pan::Center; 4],
+            hpf_coef: DMG_HPF_COEF_BASE,
+            hpf_buffer: [0.0; 2],
             sample_generator: SampleGenerator::new(),
             pulse_generator: [PulseGenerator::new(), PulseGenerator::new()],
             noise_generator: NoiseGenerator::new(),
@@ -508,15 +518,73 @@ impl APU {
         }
     }
 
+    /// 出力サンプリングレートの設定
+    pub fn set_sampling_rate(&mut self, sampling_rate: u32) {
+        // HPFの係数を再計算
+        self.hpf_coef =
+            DMG_HPF_COEF_BASE.powf((DMG_MASTER_CLOCK_HZ as f32) / (sampling_rate as f32));
+    }
+
     /// 1システムクロック単位で実行される処理
     pub fn system_clock_tick(&mut self, mem: &mut [u8]) {
-
         self.noise_generator.system_clock_tick(mem);
+    }
+
+    /// 16bitデジタル値を[-1,1]の範囲の浮動小数値に変換
+    fn dac(input: u8) -> f32 {
+        // NOTE: 0は1, 0xFは-1にマッピングされる
+        const INV7_5: f32 = 1.0 / 7.5;
+        -(input as f32) * INV7_5 + 1.0
+    }
+
+    /// HPFの適用
+    fn apply_hpf(&mut self, input: &mut [f32; 2]) {
+        for ch in 0..2 {
+            let out = input[ch] - self.hpf_buffer[ch];
+            self.hpf_buffer[ch] = input[ch] - out * self.hpf_coef;
+            input[ch] = out;
+        }
     }
 
     /// 1ステレオサンプル出力
     /// 現在の出力サンプルを元に出力を計算します。サンプリングレート間隔で実行してください
-    pub fn compute_output(&mut self) -> [f32; 2] {
-        [0.0, 0.0]
+    pub fn compute_output(&mut self, mem: &[u8]) -> [f32; 2] {
+        let mut output = [0.0, 0.0];
+        // 4ch分の信号を読み取り・浮動小数化
+        let ch_out = [
+            Self::dac((mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] >> 0) & 0xF),
+            Self::dac((mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] >> 4) & 0xF),
+            Self::dac((mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] >> 0) & 0xF),
+            Self::dac((mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] >> 4) & 0xF),
+        ];
+        // パン適用しつつステレオにミックス
+        for ch in 0..4 {
+            if self.ch_on[ch] {
+                let out = ch_out[ch];
+                match self.ch_pan[ch] {
+                    Pan::Left => {
+                        output[0] += out;
+                    }
+                    Pan::Right => {
+                        output[1] += out;
+                    }
+                    Pan::Center => {
+                        output[0] += out;
+                        output[1] += out;
+                    }
+                    Pan::Ignore => {}
+                }
+            }
+        }
+        // マスターボリューム適用
+        // NOTE:
+        // - master_volume==7で入力をそのまま出力する。
+        // - スケールは不明（ドキュメント化されてない）。
+        for ch in 0..2 {
+            output[ch] *= ((self.master_volume[ch] as f32) + 1.0) / 8.0;
+        }
+        // HPF適用
+        self.apply_hpf(&mut output);
+        output
     }
 }
