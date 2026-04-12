@@ -1,6 +1,6 @@
+use crate::envelope_generator::*;
 use crate::types::*;
 
-const APU_ENVELOPE_SWEEP_PER_SYSTEM_CLOCKS: u32 = DMG_SYSTEM_CLOCK_HZ / APU_ENVELOPE_SWEEP_HZ;
 const APU_SOUND_LENGTH_PER_SYSTEM_CLOCKS: u32 = DMG_SYSTEM_CLOCK_HZ / APU_SOUND_LENGTH_HZ;
 
 /// LFSRの長さ
@@ -27,16 +27,6 @@ pub struct NoiseGenerator {
     clock_divider: u8,
     /// LFSRの長さはショートか
     lfsr_short_mode: bool,
-    /// 初期ボリューム
-    initial_volume: u8,
-    /// ボリューム現在値
-    volume: u8,
-    /// ボリューム変更頻度
-    volume_sweep_pace: u8,
-    /// ボリューム変更方向
-    volume_sweep_direction: SweepDirection,
-    /// エンベロープタイマーカウント
-    envelope_timer_count: u8,
     /// 持続時間有効か
     length_enable: bool,
     /// 再生要求フラグ
@@ -46,9 +36,11 @@ pub struct NoiseGenerator {
     /// LSFRの更新用ビットマスク
     lfsr_mask: u16,
     /// LSFRのシステムクロックカウンタ
-    lfsr_clock_counter: u32,
+    lfsr_clock_count: u32,
     /// LSFRの更新間隔
     lfsr_update_period: u32,
+    /// エンベロープ（ボリューム）ジェネレータ
+    eg: EnvelopeGenerator,
 }
 
 impl NoiseGenerator {
@@ -61,17 +53,13 @@ impl NoiseGenerator {
             clock_shift: 0,
             clock_divider: 0,
             lfsr_short_mode: false,
-            initial_volume: 0,
-            volume: 0,
-            volume_sweep_pace: 0,
-            volume_sweep_direction: SweepDirection::Positive,
-            envelope_timer_count: 0,
             length_enable: false,
             trigger: false,
             lfsr: 0,
             lfsr_mask: 0,
-            lfsr_clock_counter: 0,
+            lfsr_clock_count: 0,
             lfsr_update_period: 0,
+            eg: EnvelopeGenerator::new(),
         }
     }
 
@@ -82,13 +70,7 @@ impl NoiseGenerator {
 
     /// ボリューム・エンベロープの設定
     pub fn set_volume_envelope(&mut self, value: u8) {
-        self.initial_volume = (value >> 4) & 0xF;
-        self.volume_sweep_direction = if (value & 0x8) == 0 {
-            SweepDirection::Positive
-        } else {
-            SweepDirection::Negative
-        };
-        self.volume_sweep_pace = value & 0x7;
+        self.eg.set_volume_envelope(value);
     }
 
     /// 更新頻度・ランダムネスの設定
@@ -128,14 +110,7 @@ impl NoiseGenerator {
 
     /// ボリューム・エンベロープの取得
     pub fn get_volume_envelope(&self) -> u8 {
-        let mut ret = 0;
-        ret |= self.initial_volume << 4;
-        ret |= match self.volume_sweep_direction {
-            SweepDirection::Positive => 0x0,
-            SweepDirection::Negative => 0x8,
-        };
-        ret |= self.volume_sweep_pace;
-        ret
+        self.eg.get_volume_envelope()
     }
 
     /// 更新頻度・ランダムネスの取得
@@ -163,18 +138,16 @@ impl NoiseGenerator {
         if self.length_timer == 0 {
             self.length_timer = self.initial_length_timer;
         }
-        // エンベロープタイマーのリセット
-        self.envelope_timer_count = 0;
-        // ボリュームのリセット
-        self.volume = self.initial_volume;
+        // エンベロープジェネレータのリセット
+        self.eg.reset();
         // LFSRビットのリセット
         self.lfsr = 0;
     }
 
     /// 1システムクロック単位処理
     pub fn system_clock_tick(&mut self, mem: &mut [u8]) {
-        self.lfsr_clock_counter += 1;
-        if self.lfsr_clock_counter >= self.lfsr_update_period {
+        self.lfsr_clock_count += 1;
+        if self.lfsr_clock_count >= self.lfsr_update_period {
             // LFSRの更新
             let lfsr0 = (self.lfsr >> 0) & 1;
             let lfsr1 = (self.lfsr >> 1) & 1;
@@ -187,10 +160,17 @@ impl NoiseGenerator {
 
             // 出力書きこみ（右1bitシフトした結果のbit0を使うので変更前の1bitを使う）
             let prev_mem = mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34];
-            mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] =
-                (prev_mem & 0x0F) | if lfsr1 == 1 { (self.volume << 4) } else { 0 };
+            mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] = (prev_mem & 0x0F)
+                | if lfsr1 != 0 {
+                    self.eg.get_volume() << 4
+                } else {
+                    0
+                };
 
-            self.lfsr_clock_counter -= self.lfsr_update_period;
+            self.lfsr_clock_count -= self.lfsr_update_period;
         }
+
+        // エンベロープジェネレータの更新
+        self.eg.system_clock_tick();
     }
 }
