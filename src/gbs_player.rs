@@ -3,16 +3,22 @@ use crate::sm83::*;
 use crate::types::*;
 
 pub struct GBSPlayer<'a> {
-    cpu: SM83<'a>,
     gbs_header: GBSFileHeader,
+    cpu: SM83<'a>,
+    sampling_rate: u32,
+    audio_output_interval_cycles: u32,
+    elapsed_cycles: u32,
 }
 
 impl<'a> GBSPlayer<'a> {
     /// コンストラクタ
-    pub fn new(gbs_header: &GBSFileHeader, rom: &'a [u8]) -> Self {
+    pub fn new(gbs_header: &GBSFileHeader, rom: &'a [u8], sampling_rate: u32) -> Self {
         Self {
-            cpu: SM83::new(rom),
             gbs_header: gbs_header.clone(),
+            cpu: SM83::new(rom),
+            sampling_rate: sampling_rate,
+            audio_output_interval_cycles: (DMG_SYSTEM_CLOCK_HZ as f32 / sampling_rate as f32).round() as u32,
+            elapsed_cycles: 0,
         }
     }
 
@@ -53,6 +59,12 @@ impl<'a> GBSPlayer<'a> {
         self.cpu
             .write_mem_u8(HWREG_TAC_TIMER_CONTROL, self.gbs_header.timer_control);
 
+        // サンプリングレート設定
+        self.cpu.set_audio_sampling_rate(self.sampling_rate);
+
+        // 経過クロックカウントをリセット
+        self.elapsed_cycles = 0;
+
         // RETが実行されるまで実行
         loop {
             let (opcode, cycle) = self.cpu.execute_step();
@@ -68,11 +80,11 @@ impl<'a> GBSPlayer<'a> {
         }
     }
 
-    /// 再生
-    pub fn play(&mut self) {
+    /// 再生ルーチン（割り込み間隔で実行）
+    fn play(&mut self) {
         self.cpu.regs.pc = self.gbs_header.play_address;
 
-        // RETが実行されるまで実行 + 定期音声出力
+        // RETが実行されるまで実行
         loop {
             let (opcode, cycle) = self.cpu.execute_step();
             match opcode {
@@ -90,5 +102,42 @@ impl<'a> GBSPlayer<'a> {
                 self.cpu.system_clock_tick();
             }
         }
+    }
+
+    /// playルーチンの割り込みシステムクロック間隔を計算
+    fn compute_play_interrupt_interval_system_clocks(&self) -> u32 {
+        // タイマー割り込み無効ならV-blank割り込みを使用
+        if (self.cpu.mem[HWREG_TAC_TIMER_CONTROL] & 0x4) == 0 {
+            return (DMG_SYSTEM_CLOCK_HZ as f32 / 59.7) as u32;
+        }
+
+        // タイマー割り込みを使用
+        // TODO: double-speed modeだと違う
+        let counter_rate_hz = match self.cpu.mem[HWREG_TAC_TIMER_CONTROL] & 0x3 {
+            0 => 4096,
+            1 => 262144,
+            2 => 65536,
+            3 => 16384,
+            _ => unreachable!(),
+        };
+
+        // 割り込み間隔時間を計算
+        let clock_interval = counter_rate_hz as f32 / (256.0 - self.cpu.mem[HWREG_TMA_TIMER_MODULO] as f32);
+
+        (DMG_SYSTEM_CLOCK_HZ as f32 / clock_interval).round() as u32
+    }
+
+    /// 1ステレオサンプル出力
+    pub fn output_audio_sample(&mut self) -> [f32; 2] {
+        while self.elapsed_cycles < self.audio_output_interval_cycles {
+            let next_interrupt_cycles = self.elapsed_cycles + self.compute_play_interrupt_interval_system_clocks();
+            while self.elapsed_cycles < next_interrupt_cycles {
+                let (_, cycle) = self.cpu.execute_step();
+                self.elapsed_cycles += cycle as u32;
+            }
+            self.play();
+        }
+        self.elapsed_cycles -= self.audio_output_interval_cycles;
+        self.cpu.output_audio_sample()
     }
 }

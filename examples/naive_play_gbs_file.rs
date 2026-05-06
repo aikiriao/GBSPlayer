@@ -26,11 +26,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut load_rom = vec![0u8; load_rom_size].into_boxed_slice();
         load_rom[(header.load_address as usize)..(header.load_address as usize + rom.len())].copy_from_slice(&rom);
         // エミュレータ作成
-        let mut player = GBSPlayer::new(&header, &load_rom);
+        let mut player = GBSPlayer::new(&header, &load_rom, 48000);
         player.load();
         player.init(0);
         loop {
-            player.play();
+            let out = player.output_audio_sample();
+            println!("{:?}", out);
         }
     }
 

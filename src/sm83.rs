@@ -370,6 +370,17 @@ impl<'a> SM83<'a> {
         self.apu.system_clock_tick(&mut self.mem);
     }
 
+    /// 音声出力サンプリングレートの設定
+    pub fn set_audio_sampling_rate(&mut self, sampling_rate: u32) {
+        self.apu.set_sampling_rate(sampling_rate);
+    }
+
+    /// 1ステレオサンプル出力
+    /// 現在の出力サンプルを元に出力を計算します。サンプリングレート間隔で実行してください
+    pub fn output_audio_sample(&mut self) -> [f32; 2] {
+        self.apu.compute_output(&self.mem)
+    }
+
     /// 16bitメモリ書き込み
     fn write_mem_u16(&mut self, address: usize, value: u16) {
         trace!("W16: 0x{:04X} <- {:04X}", address, value,);
@@ -993,6 +1004,13 @@ impl<'a> SM83<'a> {
                 SM83Oprand::A16 { a16 } => {
                     self.regs.pc = *a16;
                     4
+                }
+                SM83Oprand::R16 { r16 } => {
+                    match r16 {
+                        &SM83Register16::HL => self.regs.pc = self.get_r16(r16),
+                        _ => unreachable!("Invalid register!"),
+                    }
+                    1
                 }
                 _ => unreachable!("Invalid oprand!"),
             },
