@@ -122,7 +122,7 @@ impl<'a> GBSPlayer<'a> {
             self.elapsed_cycles += cycle as u32;
             self.interrupt_cycles += cycle as u32;
             // 割り込み処理
-            if self.interrupt_cycles > interrupt_cycles {
+            if self.interrupt_cycles >= interrupt_cycles {
                 self.play();
                 self.interrupt_cycles -= interrupt_cycles; 
             }
