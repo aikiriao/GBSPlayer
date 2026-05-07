@@ -3,10 +3,8 @@ use crate::assembler::*;
 use crate::types::*;
 use log::{trace, warn};
 
-/// VBlank（垂直同期）間隔(Hz)
-const VBLANK_PERIOD_HZ: f32 = 59.73;
 /// VBlankあたりのシステムクロック数
-const SYSTEM_CLOCKS_PER_VBLANK: f32 = (DMG_SYSTEM_CLOCK_HZ as f32) / VBLANK_PERIOD_HZ;
+const SYSTEM_CLOCKS_PER_VBLANK: f32 = (DMG_SYSTEM_CLOCK_HZ as f32) / DMG_VBLANK_PERIOD_HZ;
 /// DIVレジスタがカウントアップするシステムクロック数
 const DIVIDER_RATE_STSTEM_CLOCKS: u32 = 64;
 

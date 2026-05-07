@@ -89,7 +89,7 @@ impl<'a> GBSPlayer<'a> {
     fn compute_play_interrupt_interval_system_clocks(&self) -> u32 {
         // タイマー割り込み無効ならV-blank割り込みを使用
         if (self.cpu.mem[HWREG_TAC_TIMER_CONTROL] & 0x4) == 0 {
-            return (DMG_SYSTEM_CLOCK_HZ as f32 / 59.7).round() as u32;
+            return (DMG_SYSTEM_CLOCK_HZ as f32 / DMG_VBLANK_PERIOD_HZ).round() as u32;
         }
 
         // タイマー割り込みを使用
