@@ -8,6 +8,7 @@ pub struct GBSPlayer<'a> {
     sampling_rate: u32,
     audio_output_interval_cycles: u32,
     elapsed_cycles: u32,
+    interrupt_cycles: u32,
 }
 
 impl<'a> GBSPlayer<'a> {
@@ -19,6 +20,7 @@ impl<'a> GBSPlayer<'a> {
             sampling_rate: sampling_rate,
             audio_output_interval_cycles: (DMG_SYSTEM_CLOCK_HZ as f32 / sampling_rate as f32).round() as u32,
             elapsed_cycles: 0,
+            interrupt_cycles: 0,
         }
     }
 
@@ -64,6 +66,7 @@ impl<'a> GBSPlayer<'a> {
 
         // 経過クロックカウントをリセット
         self.elapsed_cycles = 0;
+        self.interrupt_cycles = 0;
 
         // RETが実行されるまで実行
         loop {
@@ -108,7 +111,7 @@ impl<'a> GBSPlayer<'a> {
     fn compute_play_interrupt_interval_system_clocks(&self) -> u32 {
         // タイマー割り込み無効ならV-blank割り込みを使用
         if (self.cpu.mem[HWREG_TAC_TIMER_CONTROL] & 0x4) == 0 {
-            return (DMG_SYSTEM_CLOCK_HZ as f32 / 59.7) as u32;
+            return (DMG_SYSTEM_CLOCK_HZ as f32 / 59.7).round() as u32;
         }
 
         // タイマー割り込みを使用
@@ -129,13 +132,19 @@ impl<'a> GBSPlayer<'a> {
 
     /// 1ステレオサンプル出力
     pub fn output_audio_sample(&mut self) -> [f32; 2] {
+        let interrupt_cycles = self.compute_play_interrupt_interval_system_clocks();
         while self.elapsed_cycles < self.audio_output_interval_cycles {
-            let next_interrupt_cycles = self.elapsed_cycles + self.compute_play_interrupt_interval_system_clocks();
-            while self.elapsed_cycles < next_interrupt_cycles {
-                let (_, cycle) = self.cpu.execute_step();
-                self.elapsed_cycles += cycle as u32;
+            let (_, cycle) = self.cpu.execute_step();
+            // システムクロックティック
+            for _ in 0..cycle {
+                self.cpu.system_clock_tick();
             }
-            self.play();
+            self.elapsed_cycles += cycle as u32;
+            self.interrupt_cycles += cycle as u32;
+            if self.interrupt_cycles > interrupt_cycles {
+                self.play();
+                self.interrupt_cycles -= interrupt_cycles; 
+            }
         }
         self.elapsed_cycles -= self.audio_output_interval_cycles;
         self.cpu.output_audio_sample()
