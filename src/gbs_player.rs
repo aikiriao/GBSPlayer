@@ -67,44 +67,22 @@ impl<'a> GBSPlayer<'a> {
         // 経過クロックカウントをリセット
         self.elapsed_cycles = 0;
         self.interrupt_cycles = 0;
+    }
 
-        // RETが実行されるまで実行
-        loop {
-            let (opcode, cycle) = self.cpu.execute_step();
-            match opcode {
-                SM83Opcode::RETNooprand => break,
-                SM83Opcode::RET { .. } => {
-                    if cycle == 5 {
-                        break;
-                    }
-                }
-                _ => {}
-            }
-        }
+    /// スタックにデータをPUSH（SM83にも同様の関数はあるがSM83の関数は隠蔽したいため自前実装）
+    fn push_stack(&mut self, value: u8) {
+        self.cpu.regs.sp = self.cpu.regs.sp.wrapping_sub(1);
+        self.cpu.write_mem_u8(self.cpu.regs.sp as usize, value);
     }
 
     /// 再生ルーチン（割り込み間隔で実行）
     fn play(&mut self) {
+        // 現在のPCをスタックにプッシュ
+        self.push_stack(((self.cpu.regs.pc >> 8) & 0xFF) as u8);
+        self.push_stack(((self.cpu.regs.pc >> 0) & 0xFF) as u8);
+
+        // 再生ルーチンのアドレスにジャンプ
         self.cpu.regs.pc = self.gbs_header.play_address;
-
-        // RETが実行されるまで実行
-        loop {
-            let (opcode, cycle) = self.cpu.execute_step();
-            match opcode {
-                SM83Opcode::RETNooprand => break,
-                SM83Opcode::RET { .. } => {
-                    if cycle == 5 {
-                        break;
-                    }
-                }
-                _ => {}
-            }
-
-            // システムクロックティック
-            for _ in 0..cycle {
-                self.cpu.system_clock_tick();
-            }
-        }
     }
 
     /// playルーチンの割り込みシステムクロック間隔を計算
@@ -134,13 +112,16 @@ impl<'a> GBSPlayer<'a> {
     pub fn output_audio_sample(&mut self) -> [f32; 2] {
         let interrupt_cycles = self.compute_play_interrupt_interval_system_clocks();
         while self.elapsed_cycles < self.audio_output_interval_cycles {
+            // 命令実行
             let (_, cycle) = self.cpu.execute_step();
             // システムクロックティック
             for _ in 0..cycle {
                 self.cpu.system_clock_tick();
             }
+            // サイクルカウントを累積
             self.elapsed_cycles += cycle as u32;
             self.interrupt_cycles += cycle as u32;
+            // 割り込み処理
             if self.interrupt_cycles > interrupt_cycles {
                 self.play();
                 self.interrupt_cycles -= interrupt_cycles; 
