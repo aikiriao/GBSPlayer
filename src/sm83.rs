@@ -154,14 +154,15 @@ impl<'a> SM83<'a> {
 
     /// スタックにデータをPUSH
     fn push_stack(&mut self, value: u8) {
-        self.write_mem_u8(self.regs.sp as usize, value);
         self.regs.sp = self.regs.sp.wrapping_sub(1);
+        self.write_mem_u8(self.regs.sp as usize, value);
     }
 
     /// スタックからデータをPOP
     fn pop_stack(&mut self) -> u8 {
+        let ret = self.read_mem_u8(self.regs.sp as usize);
         self.regs.sp = self.regs.sp.wrapping_add(1);
-        self.read_mem_u8(self.regs.sp as usize)
+        ret
     }
 
     /// フラグリセット
