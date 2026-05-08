@@ -196,9 +196,9 @@ impl<'a> SM83<'a> {
     /// ROMバンクの切り替え(MBC1)
     fn switch_rom_bank_mbc1(&mut self) {
         let bank_number = (self.mbc1_bank2 << 5) | (self.mbc1_bank1);
-        let offset = (bank_number as usize - 1) * 0x4000;
-        self.mem[ROM_BANK1_START_ADDRESS..(ROM_BANK1_START_ADDRESS + 0x4000)]
-            .copy_from_slice(&self.rom[offset..(offset + 0x4000)]);
+        let offset = (bank_number as usize) * DMG_ROM_BANK_SIZE;
+        self.mem[ROM_BANK1_START_ADDRESS..(ROM_BANK1_START_ADDRESS + DMG_ROM_BANK_SIZE)]
+            .copy_from_slice(&self.rom[offset..(offset + DMG_ROM_BANK_SIZE)]);
     }
 
     /// ステップ実行

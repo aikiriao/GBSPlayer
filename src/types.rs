@@ -5,6 +5,8 @@ pub const DMG_VBLANK_PERIOD_HZ: f32 = 59.73;
 pub const DMG_MASTER_CLOCK_HZ: u32 = 4194304;
 /// ゲームボーイのシステムクロック(Hz)
 pub const DMG_SYSTEM_CLOCK_HZ: u32 = DMG_MASTER_CLOCK_HZ / 4;
+/// ROMの単一バンクサイズ
+pub const DMG_ROM_BANK_SIZE: usize = 0x4000;
 
 // オーディオ仕様
 /// エンベロープスイープの更新頻度(Hz)
