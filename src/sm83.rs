@@ -528,19 +528,27 @@ impl<'a> SM83<'a> {
                 match oprand {
                     SM83Oprand::R8 { r8 } => {
                         let value = self.get_r8(r8);
-                        self.set_r8(r8, value.wrapping_sub(1));
+                        let ret = value.wrapping_sub(1);
+                        self.set_r8(r8, ret);
+                        self.set_flag(FLAG_Z, ret == 0);
+                        self.set_flag(FLAG_N, true);
+                        self.set_flag(FLAG_H, (ret & 0x0F) == 0x0F);
                         cycle = 1;
+                    }
+                    SM83Oprand::R16Indirect { r16 } => {
+                        let address = self.get_r16(r16) as usize;
+                        let value = self.read_mem_u8(address);
+                        let ret = value.wrapping_sub(1);
+                        self.write_mem_u8(address, ret);
+                        self.set_flag(FLAG_Z, ret == 0);
+                        self.set_flag(FLAG_N, true);
+                        self.set_flag(FLAG_H, (ret & 0x0F) == 0x0F);
+                        cycle = 3;
                     }
                     SM83Oprand::R16 { r16 } => {
                         let value = self.get_r16(r16);
                         self.set_r16(r16, value.wrapping_sub(1));
                         cycle = 2;
-                    }
-                    SM83Oprand::R16Indirect { r16 } => {
-                        let address = self.get_r16(r16) as usize;
-                        let value = self.read_mem_u8(address);
-                        self.write_mem_u8(address, value.wrapping_sub(1));
-                        cycle = 3;
                     }
                     _ => unreachable!("Invalid oprand!"),
                 }
@@ -551,19 +559,27 @@ impl<'a> SM83<'a> {
                 match oprand {
                     SM83Oprand::R8 { r8 } => {
                         let value = self.get_r8(r8);
-                        self.set_r8(r8, value.wrapping_add(1));
+                        let ret = value.wrapping_add(1);
+                        self.set_r8(r8, ret);
+                        self.set_flag(FLAG_Z, ret == 0);
+                        self.set_flag(FLAG_N, false);
+                        self.set_flag(FLAG_H, (ret & 0x0F) == 0);
                         cycle = 1;
+                    }
+                    SM83Oprand::R16Indirect { r16 } => {
+                        let address = self.get_r16(r16) as usize;
+                        let value = self.read_mem_u8(address);
+                        let ret = value.wrapping_add(1);
+                        self.write_mem_u8(address, ret);
+                        self.set_flag(FLAG_Z, ret == 0);
+                        self.set_flag(FLAG_N, false);
+                        self.set_flag(FLAG_H, (ret & 0x0F) == 0);
+                        cycle = 3;
                     }
                     SM83Oprand::R16 { r16 } => {
                         let value = self.get_r16(r16);
                         self.set_r16(r16, value.wrapping_add(1));
                         cycle = 2;
-                    }
-                    SM83Oprand::R16Indirect { r16 } => {
-                        let address = self.get_r16(r16) as usize;
-                        let value = self.read_mem_u8(address);
-                        self.write_mem_u8(address, value.wrapping_add(1));
-                        cycle = 3;
                     }
                     _ => unreachable!("Invalid oprand!"),
                 }
