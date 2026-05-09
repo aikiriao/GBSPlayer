@@ -69,22 +69,6 @@ impl<'a> GBSPlayer<'a> {
         self.interrupt_cycles = 0;
     }
 
-    /// スタックにデータをPUSH（SM83にも同様の関数はあるがSM83の関数は隠蔽したいため自前実装）
-    fn push_stack(&mut self, value: u8) {
-        self.cpu.regs.sp = self.cpu.regs.sp.wrapping_sub(1);
-        self.cpu.write_mem_u8(self.cpu.regs.sp as usize, value);
-    }
-
-    /// 再生ルーチン（割り込み間隔で実行）
-    fn play(&mut self) {
-        // 現在のPCをスタックにプッシュ
-        self.push_stack(((self.cpu.regs.pc >> 8) & 0xFF) as u8);
-        self.push_stack(((self.cpu.regs.pc >> 0) & 0xFF) as u8);
-
-        // 再生ルーチンのアドレスにジャンプ
-        self.cpu.regs.pc = self.gbs_header.play_address;
-    }
-
     /// playルーチンの割り込みシステムクロック間隔を計算
     fn compute_play_interrupt_interval_system_clocks(&self) -> u32 {
         // タイマー割り込み無効ならV-blank割り込みを使用
@@ -123,7 +107,8 @@ impl<'a> GBSPlayer<'a> {
             self.interrupt_cycles += cycle as u32;
             // 割り込み処理
             if self.interrupt_cycles >= interrupt_cycles {
-                self.play();
+                // 再生ルーチンのアドレスにジャンプ
+                self.cpu.regs.pc = self.gbs_header.play_address;
                 self.interrupt_cycles -= interrupt_cycles; 
             }
         }
