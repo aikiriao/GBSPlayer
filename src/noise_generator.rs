@@ -2,15 +2,6 @@ use crate::envelope_generator::*;
 use crate::length_timer::*;
 use crate::types::*;
 
-/// LFSRの長さ
-#[derive(Debug)]
-enum LFSRLength {
-    /// 15bit
-    Bit15,
-    /// 7bit
-    Bit7,
-}
-
 /// CH4: ノイズジェネレータ
 #[derive(Debug)]
 pub struct NoiseGenerator {
@@ -58,7 +49,7 @@ impl NoiseGenerator {
 
     /// 長さタイマーの設定
     pub fn set_length_timer(&mut self, value: u8) {
-        self.length_timer.set_length_timer(value, 1 << 2); // CHの4倍の速さで更新
+        self.length_timer.set_length_timer(value, 1 << 2); // 他CHの4倍の速さで更新
     }
 
     /// ボリューム・エンベロープの設定

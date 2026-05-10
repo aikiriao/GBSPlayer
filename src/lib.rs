@@ -7,5 +7,7 @@ pub mod sm83;
 pub mod gbs_player;
 mod length_timer;
 mod envelope_generator;
+mod pulse_generator;
+mod sample_generator;
 mod noise_generator;
 mod apu;
