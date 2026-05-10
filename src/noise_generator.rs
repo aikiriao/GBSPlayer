@@ -133,7 +133,10 @@ impl NoiseGenerator {
     }
 
     /// 1システムクロック単位処理
-    pub fn system_clock_tick(&mut self, mem: &mut [u8]) {
+    pub fn system_clock_tick(&mut self) -> Option<u8> {
+        let mut out = None;
+
+        // カウンタ増加
         self.lfsr_clock_count += 1;
         if self.lfsr_clock_count >= self.lfsr_update_period {
             // LFSRの更新
@@ -146,14 +149,8 @@ impl NoiseGenerator {
             }
             self.lfsr >>= 1;
 
-            // 出力書きこみ（右1bitシフトした結果のbit0を使うので変更前の1bitを使う）
-            let prev_mem = mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34];
-            mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] = (prev_mem & 0x0F)
-                | if lfsr1 != 0 {
-                    self.eg.get_volume() << 4
-                } else {
-                    0
-                };
+            // 出力（右1bitシフトした結果のbit0を使うので変更前の1bitを使う）
+            out = Some(if lfsr1 != 0 { self.eg.get_volume() } else { 0 });
 
             self.lfsr_clock_count -= self.lfsr_update_period;
         }
@@ -168,5 +165,7 @@ impl NoiseGenerator {
 
         // 長さタイマーの更新
         self.length_timer.system_clock_tick();
+
+        out
     }
 }

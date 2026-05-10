@@ -2,17 +2,23 @@ use crate::envelope_generator::*;
 use crate::length_timer::*;
 use crate::types::*;
 
+/// デューティ比に対応する矩形波テーブル
+const PULSE_TABLE_DUTY125: [u8; 8] = [1, 1, 1, 1, 1, 1, 1, 0];
+const PULSE_TABLE_DUTY250: [u8; 8] = [0, 1, 1, 1, 1, 1, 1, 0];
+const PULSE_TABLE_DUTY500: [u8; 8] = [0, 1, 1, 1, 1, 0, 0, 0];
+const PULSE_TABLE_DUTY750: [u8; 8] = [1, 0, 0, 0, 0, 0, 0, 1];
+
 /// デューティ比
 #[derive(Debug, Clone, Copy)]
 enum DutyRatio {
     /// 12.5%
-    Duty12_5,
+    Duty125,
     /// 25%
-    Duty25,
+    Duty250,
     /// 50%
-    Duty50,
+    Duty500,
     /// 75%
-    Duty75,
+    Duty750,
 }
 
 /// CH1/CH2: パルス（矩形波）ジェネレータ
@@ -28,12 +34,20 @@ pub struct PulseGenerator {
     period_sweep_step: u8,
     /// 矩形波のデューティ比
     duty: DutyRatio,
+    /// 矩形波テーブル
+    pulse_table: &'static [u8; 8],
+    /// 矩形波テーブルのインデックス
+    pulse_table_index: usize,
     /// エンベロープ（ボリューム）ジェネレータ
     eg: EnvelopeGenerator,
     /// 長さタイマー
     length_timer: LengthTimer,
     /// 周期
     period: u16,
+    /// サンプル更新間隔
+    sample_update_period: u16,
+    /// サンプル更新のためのシステムクロックカウンタ
+    sample_update_counter: u16,
     /// 持続時間有効か
     length_enable: bool,
     /// 再生要求フラグ
@@ -48,8 +62,12 @@ impl PulseGenerator {
             period_sweep_pace: 0,
             period_sweep_direction: SweepDirection::Positive,
             period_sweep_step: 0,
-            duty: DutyRatio::Duty12_5,
+            duty: DutyRatio::Duty125,
+            pulse_table: &PULSE_TABLE_DUTY125,
+            pulse_table_index: 0,
             period: 0,
+            sample_update_period: 0,
+            sample_update_counter: 0,
             length_enable: false,
             trigger: false,
             eg: EnvelopeGenerator::new(),
@@ -70,11 +88,11 @@ impl PulseGenerator {
 
     /// 長さタイマー・デューティの設定
     pub fn set_length_timer_duty_cycle(&mut self, value: u8) {
-        self.duty = match (value >> 5) & 0x3 {
-            0 => DutyRatio::Duty12_5,
-            1 => DutyRatio::Duty25,
-            2 => DutyRatio::Duty50,
-            3 => DutyRatio::Duty75,
+        (self.duty, self.pulse_table) = match (value >> 5) & 0x3 {
+            0 => (DutyRatio::Duty125, &PULSE_TABLE_DUTY125),
+            1 => (DutyRatio::Duty250, &PULSE_TABLE_DUTY250),
+            2 => (DutyRatio::Duty500, &PULSE_TABLE_DUTY500),
+            3 => (DutyRatio::Duty750, &PULSE_TABLE_DUTY750),
             _ => unreachable!(),
         };
         self.length_timer.set_length_timer(value & 0x1F, 1);
@@ -88,11 +106,13 @@ impl PulseGenerator {
     /// 周期下位ビット設定
     pub fn set_period_low(&mut self, value: u8) {
         self.period = (self.period & 0xFF00) | (value as u16);
+        self.sample_update_period = (DMG_SYSTEM_CLOCK_HZ / (2048 - self.period as u32)) as u16;
     }
 
     /// 周期上位ビット・制御フラグ設定
     pub fn set_period_high_control(&mut self, value: u8) {
         self.period = (((value & 0x7) as u16) << 8) | (self.period & 0x00FF);
+        self.sample_update_period = (DMG_SYSTEM_CLOCK_HZ / (2048 - self.period as u32)) as u16;
         self.length_enable = (value & 0x40) != 0;
         self.trigger = (value & 0x80) != 0;
         if self.trigger {
@@ -116,10 +136,10 @@ impl PulseGenerator {
     pub fn get_length_timer_duty_cycle(&self) -> u8 {
         let mut ret = 0;
         ret |= match self.duty {
-            DutyRatio::Duty12_5 => 0 << 5,
-            DutyRatio::Duty25 => 1 << 5,
-            DutyRatio::Duty50 => 2 << 5,
-            DutyRatio::Duty75 => 3 << 5,
+            DutyRatio::Duty125 => 0 << 5,
+            DutyRatio::Duty250 => 1 << 5,
+            DutyRatio::Duty500 => 2 << 5,
+            DutyRatio::Duty750 => 3 << 5,
         };
         ret |= self.length_timer.get_initial_length_timer();
         ret
@@ -157,8 +177,18 @@ impl PulseGenerator {
     }
 
     /// 1システムクロック単位処理
-    pub fn system_clock_tick(&mut self, mem: &mut [u8]) {
-        // TODO
+    pub fn system_clock_tick(&mut self) -> Option<u8> {
+        let mut out = None;
+
+        // カウンタ増加
+        self.sample_update_counter += 1;
+
+        // サンプル更新
+        if self.sample_update_counter >= self.sample_update_period {
+            out = Some(self.pulse_table[self.pulse_table_index] * self.eg.get_volume());
+            self.pulse_table_index = (self.pulse_table_index + 1) & 0x7;
+            self.sample_update_counter -= self.sample_update_period;
+        }
 
         // 長さタイマーが時間切れしていたら無効に
         if self.length_timer.expired {
@@ -170,5 +200,7 @@ impl PulseGenerator {
 
         // 長さタイマーの更新
         self.length_timer.system_clock_tick();
+
+        out
     }
 }

@@ -1,6 +1,6 @@
 use crate::noise_generator::*;
-use crate::sample_generator::*;
 use crate::pulse_generator::*;
+use crate::sample_generator::*;
 use crate::types::*;
 use log::{trace, warn};
 
@@ -225,9 +225,21 @@ impl APU {
             HWREG_NR52_AUDIO_MASTER_CONTROL => {
                 let mut ret = 0;
                 ret |= if self.audio_on { 0x80 } else { 0 };
-                ret |= if self.pulse_generator[0].enable { 0x01 } else { 0 };
-                ret |= if self.pulse_generator[1].enable { 0x02 } else { 0 };
-                ret |= if self.sample_generator.enable { 0x04 } else { 0 };
+                ret |= if self.pulse_generator[0].enable {
+                    0x01
+                } else {
+                    0
+                };
+                ret |= if self.pulse_generator[1].enable {
+                    0x02
+                } else {
+                    0
+                };
+                ret |= if self.sample_generator.enable {
+                    0x04
+                } else {
+                    0
+                };
                 ret |= if self.noise_generator.enable { 0x08 } else { 0 };
                 ret
             }
@@ -248,12 +260,25 @@ impl APU {
             DMG_HPF_COEF_BASE.powf((DMG_MASTER_CLOCK_HZ as f32) / (sampling_rate as f32));
     }
 
-    /// 1システムクロック単位で実行される処理
+    /// 1システムクロック単位処理
     pub fn system_clock_tick(&mut self, mem: &mut [u8]) {
-        self.pulse_generator[0].system_clock_tick(mem);
-        self.pulse_generator[1].system_clock_tick(mem);
-        self.sample_generator.system_clock_tick(mem);
-        self.noise_generator.system_clock_tick(mem);
+        // 出力があればハードウェアレジスタに書き込む
+        if let Some(out) = self.pulse_generator[0].system_clock_tick() {
+            mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] =
+                (mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] & 0xF0) | ((out & 0xF) << 0);
+        }
+        if let Some(out) = self.pulse_generator[1].system_clock_tick() {
+            mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] =
+                (mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] & 0x0F) | ((out & 0xF) << 4);
+        }
+        if let Some(out) = self.sample_generator.system_clock_tick() {
+            mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] =
+                (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] & 0xF0) | ((out & 0xF) << 0);
+        }
+        if let Some(out) = self.noise_generator.system_clock_tick() {
+            mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] =
+                (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] & 0x0F) | ((out & 0xF) << 4);
+        }
     }
 
     /// 16bitデジタル値を[-1,1]の範囲の浮動小数値に変換

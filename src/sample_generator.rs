@@ -138,7 +138,9 @@ impl SampleGenerator {
     }
 
     /// 1システムクロック単位処理
-    pub fn system_clock_tick(&mut self, mem: &mut [u8]) {
+    pub fn system_clock_tick(&mut self) -> Option<u8> {
+        let mut out = None;
+
         // TODO
 
         // 長さタイマーが時間切れしていたら無効に
@@ -148,5 +150,7 @@ impl SampleGenerator {
 
         // 長さタイマーの更新
         self.length_timer.system_clock_tick();
+
+        out
     }
 }
