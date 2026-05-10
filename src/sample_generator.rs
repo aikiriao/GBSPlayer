@@ -1,5 +1,8 @@
-use crate::types::*;
 use crate::length_timer::*;
+use crate::types::*;
+
+/// サンプルジェネレータの動作クロック
+const SAMPLE_GENERATOR_CLOCK_HZ: u32 = 2097152;
 
 /// CH3: サンプルジェネレータ
 #[derive(Debug)]
@@ -12,12 +15,18 @@ pub struct SampleGenerator {
     output_level_shift: u8,
     /// 周期
     period: u16,
+    /// サンプル更新間隔
+    sample_update_period: u16,
+    /// サンプル更新のためのシステムクロックカウンタ
+    sample_update_counter: u16,
     /// 持続時間有効か
     length_enable: bool,
     /// 再生要求フラグ
     trigger: bool,
     /// 波形RAM 4bit深度 x 32サンプル
     wave_ram: [u8; 32],
+    /// 波形RAMの参照インデックス
+    wave_ram_index: usize,
     /// 長さタイマー
     length_timer: LengthTimer,
 }
@@ -31,8 +40,11 @@ impl SampleGenerator {
             output_level_shift: 0,
             length_enable: false,
             period: 0,
+            sample_update_period: 0,
+            sample_update_counter: 0,
             trigger: false,
             wave_ram: [0u8; 32],
+            wave_ram_index: 0,
             length_timer: LengthTimer::new(),
         }
     }
@@ -61,11 +73,15 @@ impl SampleGenerator {
     /// 周期下位ビット設定
     pub fn set_period_low(&mut self, value: u8) {
         self.period = (self.period & 0xFF00) | (value as u16);
+        self.sample_update_period =
+            (SAMPLE_GENERATOR_CLOCK_HZ / (2048 - self.period as u32)) as u16;
     }
 
     /// 周期上位ビット・制御フラグ設定
     pub fn set_period_high_control(&mut self, value: u8) {
         self.period = (((value & 0x7) as u16) << 8) | (self.period & 0x00FF);
+        self.sample_update_period =
+            (SAMPLE_GENERATOR_CLOCK_HZ / (2048 - self.period as u32)) as u16;
         self.length_enable = (value & 0x40) != 0;
         self.trigger = (value & 0x80) != 0;
         if self.trigger {
@@ -76,7 +92,7 @@ impl SampleGenerator {
     /// 波形RAMの設定
     pub fn set_wave_ram(&mut self, address: usize, value: u8) {
         // TODO: 再生中にセットすると書き込みは無視される
-        let smpl = 2 * (address -  HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
+        let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
         self.wave_ram[smpl + 0] = (value >> 4) & 0xF;
         self.wave_ram[smpl + 1] = (value >> 4) & 0xF;
     }
@@ -141,7 +157,15 @@ impl SampleGenerator {
     pub fn system_clock_tick(&mut self) -> Option<u8> {
         let mut out = None;
 
-        // TODO
+        // カウンタ増加
+        self.sample_update_counter = self.sample_update_counter.wrapping_add(1);
+
+        // サンプル更新
+        if self.sample_update_counter >= self.sample_update_period {
+            out = Some(self.wave_ram[self.wave_ram_index]);
+            self.wave_ram_index = (self.wave_ram_index + 1) & 0x1F;
+            self.sample_update_counter -= self.sample_update_period;
+        }
 
         // 長さタイマーが時間切れしていたら無効に
         if self.length_timer.expired {

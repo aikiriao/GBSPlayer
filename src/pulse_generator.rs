@@ -2,6 +2,9 @@ use crate::envelope_generator::*;
 use crate::length_timer::*;
 use crate::types::*;
 
+/// パルスジェネレータの動作クロック
+const PULSE_GENERATOR_CLOCK_HZ: u32 = 1048576;
+
 /// デューティ比に対応する矩形波テーブル
 const PULSE_TABLE_DUTY125: [u8; 8] = [1, 1, 1, 1, 1, 1, 1, 0];
 const PULSE_TABLE_DUTY250: [u8; 8] = [0, 1, 1, 1, 1, 1, 1, 0];
@@ -106,13 +109,13 @@ impl PulseGenerator {
     /// 周期下位ビット設定
     pub fn set_period_low(&mut self, value: u8) {
         self.period = (self.period & 0xFF00) | (value as u16);
-        self.sample_update_period = (DMG_SYSTEM_CLOCK_HZ / (2048 - self.period as u32)) as u16;
+        self.sample_update_period = (PULSE_GENERATOR_CLOCK_HZ / (2048 - self.period as u32)) as u16;
     }
 
     /// 周期上位ビット・制御フラグ設定
     pub fn set_period_high_control(&mut self, value: u8) {
         self.period = (((value & 0x7) as u16) << 8) | (self.period & 0x00FF);
-        self.sample_update_period = (DMG_SYSTEM_CLOCK_HZ / (2048 - self.period as u32)) as u16;
+        self.sample_update_period = (PULSE_GENERATOR_CLOCK_HZ / (2048 - self.period as u32)) as u16;
         self.length_enable = (value & 0x40) != 0;
         self.trigger = (value & 0x80) != 0;
         if self.trigger {
@@ -181,7 +184,7 @@ impl PulseGenerator {
         let mut out = None;
 
         // カウンタ増加
-        self.sample_update_counter += 1;
+        self.sample_update_counter = self.sample_update_counter.wrapping_add(1);
 
         // サンプル更新
         if self.sample_update_counter >= self.sample_update_period {
