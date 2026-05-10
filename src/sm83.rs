@@ -448,7 +448,7 @@ impl<'a> SM83<'a> {
                         (ret, overflow, half_overflow) =
                             add_u16(self.get_r16(dst), self.get_r16(src));
                         self.set_r16(dst, ret);
-                        self.set_flag(FLAG_Z, ret == 0);
+                        // ゼロフラグは不変
                         cycle = 2;
                     }
                     SM83Oprand::R16AndE8 { r16, e8 } => {
