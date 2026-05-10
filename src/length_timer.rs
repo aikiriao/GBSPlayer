@@ -1,8 +1,5 @@
 use crate::types::*;
 
-/// 長さタイマーの更新間隔
-const APU_SOUND_LENGTH_PER_SYSTEM_CLOCKS: u32 = DMG_SYSTEM_CLOCK_HZ / APU_SOUND_LENGTH_HZ;
-
 /// 長さタイマー
 #[derive(Debug)]
 pub struct LengthTimer {
@@ -16,20 +13,25 @@ pub struct LengthTimer {
     length_timer: u8,
     /// タイマー増分
     timer_delta: u8,
-    /// システムクロックカウント
-    system_clock_count: u32,
+    /// クロックカウント
+    clock_count: u32,
+    /// 更新クロック周期
+    update_period: u32,
 }
 
 impl LengthTimer {
     /// コンストラクタ
-    pub fn new() -> Self {
+    pub fn new(clock_tick_hz: u32) -> Self {
+        assert!(clock_tick_hz % APU_SOUND_LENGTH_HZ == 0);
+
         Self {
             enable: false,
             expired: true,
             initial_length_timer: 0,
             length_timer: 0,
             timer_delta: 0,
-            system_clock_count: 0,
+            clock_count: 0,
+            update_period: clock_tick_hz / APU_SOUND_LENGTH_HZ,
         }
     }
 
@@ -58,15 +60,15 @@ impl LengthTimer {
     pub fn reset(&mut self) {
         self.length_timer = self.initial_length_timer;
         self.expired = false;
-        self.system_clock_count = 0;
+        self.clock_count = 0;
     }
 
-    /// 1システムクロック単位処理
-    pub fn system_clock_tick(&mut self) {
-        self.system_clock_count += 1;
+    /// クロック単位処理
+    pub fn clock_tick(&mut self) {
+        self.clock_count += 1;
         if self.enable
             && !self.expired
-            && self.system_clock_count >= APU_SOUND_LENGTH_PER_SYSTEM_CLOCKS
+            && self.clock_count >= self.update_period
         {
             let (timer, overflow) = self.length_timer.overflowing_add(self.timer_delta);
             if overflow {
@@ -74,7 +76,7 @@ impl LengthTimer {
             } else {
                 self.length_timer = timer;
             }
-            self.system_clock_count -= APU_SOUND_LENGTH_PER_SYSTEM_CLOCKS;
+            self.clock_count -= self.update_period;
         }
     }
 }

@@ -45,7 +45,7 @@ impl SampleGenerator {
             trigger: false,
             wave_ram: [0u8; 32],
             wave_ram_index: 0,
-            length_timer: LengthTimer::new(),
+            length_timer: LengthTimer::new(SAMPLE_GENERATOR_CLOCK_HZ),
         }
     }
 
@@ -154,7 +154,7 @@ impl SampleGenerator {
     }
 
     /// 1システムクロック単位処理
-    pub fn system_clock_tick(&mut self) -> Option<u8> {
+    pub fn clock_tick_2mhz(&mut self) -> Option<u8> {
         let mut out = None;
 
         // カウンタ増加
@@ -173,7 +173,7 @@ impl SampleGenerator {
         }
 
         // 長さタイマーの更新
-        self.length_timer.system_clock_tick();
+        self.length_timer.clock_tick();
 
         out
     }

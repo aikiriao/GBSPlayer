@@ -44,6 +44,8 @@ pub struct APU {
     sample_generator: SampleGenerator,
     /// ノイズジェネレータ
     noise_generator: NoiseGenerator,
+    /// クロックカウント
+    clock_count: u32,
 }
 
 impl APU {
@@ -59,6 +61,7 @@ impl APU {
             sample_generator: SampleGenerator::new(),
             pulse_generator: [PulseGenerator::new(), PulseGenerator::new()],
             noise_generator: NoiseGenerator::new(),
+            clock_count: 0,
         }
     }
 
@@ -260,24 +263,33 @@ impl APU {
             DMG_HPF_COEF_BASE.powf((DMG_MASTER_CLOCK_HZ as f32) / (sampling_rate as f32));
     }
 
-    /// 1システムクロック単位処理
-    pub fn system_clock_tick(&mut self, mem: &mut [u8]) {
+    /// 1MHzクロック単位処理
+    pub fn clock_tick_1mhz(&mut self, mem: &mut [u8]) {
+        // クロック更新
+        self.clock_count = self.clock_count.wrapping_add(1);
+
         // 出力があればハードウェアレジスタに書き込む
-        if let Some(out) = self.pulse_generator[0].system_clock_tick() {
+        if let Some(out) = self.pulse_generator[0].clock_tick_1mhz() {
             mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] =
                 (mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] & 0xF0) | ((out & 0xF) << 0);
         }
-        if let Some(out) = self.pulse_generator[1].system_clock_tick() {
+        if let Some(out) = self.pulse_generator[1].clock_tick_1mhz() {
             mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] =
                 (mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] & 0x0F) | ((out & 0xF) << 4);
         }
-        if let Some(out) = self.sample_generator.system_clock_tick() {
-            mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] =
-                (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] & 0xF0) | ((out & 0xF) << 0);
+        // 1MHzサイクルでは回せないので2回実行
+        for _ in 0..2 {
+            if let Some(out) = self.sample_generator.clock_tick_2mhz() {
+                mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] =
+                    (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] & 0xF0) | ((out & 0xF) << 0);
+            }
         }
-        if let Some(out) = self.noise_generator.system_clock_tick() {
-            mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] =
-                (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] & 0x0F) | ((out & 0xF) << 4);
+        // 256kHzは間引いて実行
+        if self.clock_count % 4 == 0 {
+            if let Some(out) = self.noise_generator.clock_tick_256khz() {
+                mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] =
+                    (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] & 0x0F) | ((out & 0xF) << 4);
+            }
         }
     }
 

@@ -366,7 +366,7 @@ impl<'a> SM83<'a> {
         }
 
         // オーディオ信号処理
-        self.apu.system_clock_tick(&mut self.mem);
+        self.apu.clock_tick_1mhz(&mut self.mem);
     }
 
     /// 音声出力サンプリングレートの設定

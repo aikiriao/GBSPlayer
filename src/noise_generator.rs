@@ -2,6 +2,9 @@ use crate::envelope_generator::*;
 use crate::length_timer::*;
 use crate::types::*;
 
+/// ノイズジェネレータの動作クロック
+const NOISE_GENERATOR_CLOCK_HZ: u32 = 262144;
+
 /// CH4: ノイズジェネレータ
 #[derive(Debug)]
 pub struct NoiseGenerator {
@@ -42,14 +45,14 @@ impl NoiseGenerator {
             lfsr_mask: 0,
             lfsr_clock_count: 0,
             lfsr_update_period: 0,
-            eg: EnvelopeGenerator::new(),
-            length_timer: LengthTimer::new(),
+            eg: EnvelopeGenerator::new(NOISE_GENERATOR_CLOCK_HZ),
+            length_timer: LengthTimer::new(NOISE_GENERATOR_CLOCK_HZ),
         }
     }
 
     /// 長さタイマーの設定
     pub fn set_length_timer(&mut self, value: u8) {
-        self.length_timer.set_length_timer(value, 1 << 2); // 他CHの4倍の速さで更新
+        self.length_timer.set_length_timer(value, 1 << 2); // FIXME: 他CHの4倍の速さで更新
     }
 
     /// ボリューム・エンベロープの設定
@@ -63,16 +66,13 @@ impl NoiseGenerator {
         self.lfsr_short_mode = (value & 0x08) != 0;
         self.clock_divider = value & 0x7;
 
-        // システムクロック単位の更新頻度を計算
-        const NOISE_GENERATOR_FREQUENCY_BASE: u32 = 262144;
-        let freq = if self.clock_divider == 0 {
-            (2 * NOISE_GENERATOR_FREQUENCY_BASE) >> (self.clock_shift as u32)
+        // LFSRの更新頻度を計算
+        self.lfsr_update_period = if self.clock_divider == 0 {
+            (2 * NOISE_GENERATOR_CLOCK_HZ) >> (self.clock_shift as u32)
         } else {
-            NOISE_GENERATOR_FREQUENCY_BASE
+            NOISE_GENERATOR_CLOCK_HZ
                 / ((self.clock_divider as u32) * (1 << (self.clock_shift as u32)))
         };
-        assert!(freq != 0);
-        self.lfsr_update_period = DMG_SYSTEM_CLOCK_HZ / freq;
 
         // 更新用ビットマスク作成
         self.lfsr_mask = if self.lfsr_short_mode { 0x8080 } else { 0x8000 };
@@ -133,7 +133,7 @@ impl NoiseGenerator {
     }
 
     /// 1システムクロック単位処理
-    pub fn system_clock_tick(&mut self) -> Option<u8> {
+    pub fn clock_tick_256khz(&mut self) -> Option<u8> {
         let mut out = None;
 
         // カウンタ増加
@@ -161,10 +161,10 @@ impl NoiseGenerator {
         }
 
         // エンベロープジェネレータの更新
-        self.eg.system_clock_tick();
+        self.eg.clock_tick();
 
         // 長さタイマーの更新
-        self.length_timer.system_clock_tick();
+        self.length_timer.clock_tick();
 
         out
     }

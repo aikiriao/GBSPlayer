@@ -73,8 +73,8 @@ impl PulseGenerator {
             sample_update_counter: 0,
             length_enable: false,
             trigger: false,
-            eg: EnvelopeGenerator::new(),
-            length_timer: LengthTimer::new(),
+            eg: EnvelopeGenerator::new(PULSE_GENERATOR_CLOCK_HZ),
+            length_timer: LengthTimer::new(PULSE_GENERATOR_CLOCK_HZ),
         }
     }
 
@@ -180,7 +180,7 @@ impl PulseGenerator {
     }
 
     /// 1システムクロック単位処理
-    pub fn system_clock_tick(&mut self) -> Option<u8> {
+    pub fn clock_tick_1mhz(&mut self) -> Option<u8> {
         let mut out = None;
 
         // カウンタ増加
@@ -199,10 +199,10 @@ impl PulseGenerator {
         }
 
         // エンベロープジェネレータの更新
-        self.eg.system_clock_tick();
+        self.eg.clock_tick();
 
         // 長さタイマーの更新
-        self.length_timer.system_clock_tick();
+        self.length_timer.clock_tick();
 
         out
     }
