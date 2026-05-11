@@ -264,28 +264,29 @@ impl APU {
     }
 
     /// 1MHzクロック単位処理
-    pub fn clock_tick_1mhz(&mut self, mem: &mut [u8]) {
+    pub fn clock_tick_2mhz(&mut self, mem: &mut [u8]) {
         // クロック更新
         self.clock_count = self.clock_count.wrapping_add(1);
 
         // 出力があればハードウェアレジスタに書き込む
-        if let Some(out) = self.pulse_generator[0].clock_tick_1mhz() {
-            mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] =
-                (mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] & 0xF0) | ((out & 0xF) << 0);
-        }
-        if let Some(out) = self.pulse_generator[1].clock_tick_1mhz() {
-            mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] =
-                (mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] & 0x0F) | ((out & 0xF) << 4);
-        }
-        // 1MHzサイクルでは回せないので2回実行
-        for _ in 0..2 {
-            if let Some(out) = self.sample_generator.clock_tick_2mhz() {
-                mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] =
-                    (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] & 0xF0) | ((out & 0xF) << 0);
+        // パルスジェネレータ
+        if self.clock_count % 2 == 0 {
+            if let Some(out) = self.pulse_generator[0].clock_tick_1mhz() {
+                mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] =
+                    (mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] & 0xF0) | ((out & 0xF) << 0);
+            }
+            if let Some(out) = self.pulse_generator[1].clock_tick_1mhz() {
+                mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] =
+                    (mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] & 0x0F) | ((out & 0xF) << 4);
             }
         }
-        // 256kHzは間引いて実行
-        if self.clock_count % 4 == 0 {
+        // サンプルジェネレータ
+        if let Some(out) = self.sample_generator.clock_tick_2mhz() {
+            mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] =
+                (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] & 0xF0) | ((out & 0xF) << 0);
+        }
+        // ノイズジェネレータ
+        if self.clock_count % 8 == 0 {
             if let Some(out) = self.noise_generator.clock_tick_256khz() {
                 mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] =
                     (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] & 0x0F) | ((out & 0xF) << 4);

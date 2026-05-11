@@ -1,6 +1,5 @@
 use crate::envelope_generator::*;
 use crate::length_timer::*;
-use crate::types::*;
 
 /// ノイズジェネレータの動作クロック
 const NOISE_GENERATOR_CLOCK_HZ: u32 = 262144;
