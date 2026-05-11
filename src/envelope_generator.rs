@@ -4,7 +4,7 @@ use crate::types::*;
 #[derive(Debug)]
 pub struct EnvelopeGenerator {
     /// エンベロープ有効か
-    enable: bool,
+    pub enable: bool,
     /// ボリューム現在値（更新を簡易にするために符号付き）
     volume: i8,
     /// ボリューム更新値
