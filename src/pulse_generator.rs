@@ -109,13 +109,11 @@ impl PulseGenerator {
     /// 周期下位ビット設定
     pub fn set_period_low(&mut self, value: u8) {
         self.period = (self.period & 0xFF00) | (value as u16);
-        self.sample_update_period = (PULSE_GENERATOR_CLOCK_HZ / (2048 - self.period as u32)) as u16;
     }
 
     /// 周期上位ビット・制御フラグ設定
     pub fn set_period_high_control(&mut self, value: u8) {
         self.period = (((value & 0x7) as u16) << 8) | (self.period & 0x00FF);
-        self.sample_update_period = (PULSE_GENERATOR_CLOCK_HZ / (2048 - self.period as u32)) as u16;
         self.length_enable = (value & 0x40) != 0;
         self.trigger = (value & 0x80) != 0;
         if self.trigger {
@@ -175,6 +173,8 @@ impl PulseGenerator {
         if self.length_timer.expired {
             self.length_timer.reset();
         }
+        // 周期の設定
+        self.sample_update_period = (PULSE_GENERATOR_CLOCK_HZ / (2048 - self.period as u32)) as u16;
         // エンベロープジェネレータのリセット
         self.eg.reset();
     }
