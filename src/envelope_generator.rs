@@ -41,7 +41,7 @@ impl EnvelopeGenerator {
     /// ボリューム・エンベロープの設定
     pub fn set_volume_envelope(&mut self, value: u8) {
         self.initial_volume = ((value >> 4) & 0xF) as i8;
-        self.volume_delta = if (value & 0x8) == 0 { 1 } else { -1 };
+        self.volume_delta = if (value & 0x8) == 0 { -1 } else { 1 };
         self.volume_sweep_pace = value & 0x7;
         // 更新間隔クロックの設定
         self.volume_update_period = if self.volume_sweep_pace == 0 {
