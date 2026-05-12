@@ -174,7 +174,7 @@ impl PulseGenerator {
             self.length_timer.reset();
         }
         // 周期の設定
-        self.sample_update_period = (PULSE_GENERATOR_CLOCK_HZ / (2048 - self.period as u32)) as u16;
+        self.sample_update_period = 2048 - self.period;
         // エンベロープジェネレータのリセット
         self.eg.reset();
     }
