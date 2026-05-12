@@ -51,7 +51,7 @@ impl NoiseGenerator {
 
     /// 長さタイマーの設定
     pub fn set_length_timer(&mut self, value: u8) {
-        self.length_timer.set_length_timer(value, 1 << 2); // FIXME: 他CHの4倍の速さで更新
+        self.length_timer.set_length_timer(value, 64);
     }
 
     /// ボリューム・エンベロープの設定

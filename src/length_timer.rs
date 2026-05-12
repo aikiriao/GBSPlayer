@@ -9,10 +9,10 @@ pub struct LengthTimer {
     pub expired: bool,
     /// 持続時間
     initial_length_timer: u8,
-    /// 残り時間
-    length_timer: u8,
-    /// タイマー増分
-    timer_delta: u8,
+    /// タイマーカウント
+    length_timer: u16,
+    /// タイムアウトカウント
+    timeout: u16,
     /// クロックカウント
     clock_count: u32,
     /// 更新クロック周期
@@ -29,7 +29,7 @@ impl LengthTimer {
             expired: true,
             initial_length_timer: 0,
             length_timer: 0,
-            timer_delta: 0,
+            timeout: 0,
             clock_count: 0,
             update_period: clock_tick_hz / APU_SOUND_LENGTH_HZ,
         }
@@ -41,9 +41,9 @@ impl LengthTimer {
     }
 
     /// 長さタイマーの設定
-    pub fn set_length_timer(&mut self, initial_timer: u8, timer_delta: u8) {
+    pub fn set_length_timer(&mut self, initial_timer: u8, timeout: u16) {
         self.initial_length_timer = initial_timer;
-        self.timer_delta = timer_delta;
+        self.timeout = timeout;
     }
 
     /// 有効フラグの取得
@@ -58,7 +58,7 @@ impl LengthTimer {
 
     /// タイマーリセット
     pub fn reset(&mut self) {
-        self.length_timer = self.initial_length_timer;
+        self.length_timer = self.initial_length_timer as u16;
         self.expired = false;
         self.clock_count = 0;
     }
@@ -70,11 +70,9 @@ impl LengthTimer {
             && !self.expired
             && self.clock_count >= self.update_period
         {
-            let (timer, overflow) = self.length_timer.overflowing_add(self.timer_delta);
-            if overflow {
+            self.length_timer += 1;
+            if self.length_timer >= self.timeout {
                 self.expired = true;
-            } else {
-                self.length_timer = timer;
             }
             self.clock_count -= self.update_period;
         }

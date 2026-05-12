@@ -98,7 +98,7 @@ impl PulseGenerator {
             3 => (DutyRatio::Duty750, &PULSE_TABLE_DUTY750),
             _ => unreachable!(),
         };
-        self.length_timer.set_length_timer(value & 0x1F, 1);
+        self.length_timer.set_length_timer(value & 0x1F, 64);
     }
 
     /// ボリューム・エンベロープ設定

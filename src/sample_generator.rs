@@ -56,7 +56,7 @@ impl SampleGenerator {
 
     /// 長さタイマーの設定
     pub fn set_length_timer(&mut self, value: u8) {
-        self.length_timer.set_length_timer(value, 1);
+        self.length_timer.set_length_timer(value, 256);
     }
 
     /// 出力レベルの設定
