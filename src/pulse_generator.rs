@@ -193,16 +193,16 @@ impl PulseGenerator {
             self.sample_update_counter -= self.sample_update_period;
         }
 
-        // 長さタイマーが時間切れしていたりエンベロープジェネレータが停止していたら止める
-        if self.length_timer.expired || !self.eg.enable {
-            self.enable = false;
-        }
-
         // エンベロープジェネレータの更新
         self.eg.clock_tick();
 
         // 長さタイマーの更新
         self.length_timer.clock_tick();
+
+        // 長さタイマーが時間切れしていたりエンベロープジェネレータが停止していたら止める
+        if self.length_timer.expired || !self.eg.enable {
+            self.enable = false;
+        }
 
         out
     }
