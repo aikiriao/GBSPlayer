@@ -8,7 +8,6 @@ pub struct GBSPlayer<'a> {
     sampling_rate: u32,
     audio_output_interval_cycles: u32,
     elapsed_cycles: u32,
-    interrupt_cycles: u32,
 }
 
 impl<'a> GBSPlayer<'a> {
@@ -20,7 +19,6 @@ impl<'a> GBSPlayer<'a> {
             sampling_rate: sampling_rate,
             audio_output_interval_cycles: (DMG_SYSTEM_CLOCK_HZ as f32 / sampling_rate as f32).round() as u32,
             elapsed_cycles: 0,
-            interrupt_cycles: 0,
         }
     }
 
@@ -66,35 +64,27 @@ impl<'a> GBSPlayer<'a> {
 
         // 経過クロックカウントをリセット
         self.elapsed_cycles = 0;
-        self.interrupt_cycles = 0;
     }
 
-    /// playルーチンの割り込みシステムクロック間隔を計算
-    fn compute_play_interrupt_interval_system_clocks(&self) -> u32 {
-        // タイマー割り込み無効ならV-blank割り込みを使用
-        if (self.cpu.mem[HWREG_TAC_TIMER_CONTROL] & 0x4) == 0 {
-            return (DMG_SYSTEM_CLOCK_HZ as f32 / DMG_VBLANK_PERIOD_HZ).round() as u32;
-        }
-
-        // タイマー割り込みを使用
-        // TODO: double-speed modeだと違う
-        let counter_rate_hz = match self.cpu.mem[HWREG_TAC_TIMER_CONTROL] & 0x3 {
-            0 => 4096,
-            1 => 262144,
-            2 => 65536,
-            3 => 16384,
-            _ => unreachable!(),
+    /// playルーチンの割り込みが発生しているか判定
+    fn check_play_interrupt(&mut self) -> bool {
+        // 判定用フラグの取得
+        let flag = if (self.cpu.mem[HWREG_TAC_TIMER_CONTROL] & 0x4) == 0 {
+            // タイマー割り込み無効ならV-blank割り込みを使用
+            SM83_INTERRUPT_FLAG_VBLANK
+        } else {
+            SM83_INTERRUPT_FLAG_TIMER
         };
 
-        // 割り込み間隔時間を計算
-        let clock_interval = counter_rate_hz as f32 / (256.0 - self.cpu.mem[HWREG_TMA_TIMER_MODULO] as f32);
+        // 割り込み判定・フラグクリア
+        let ret = (self.cpu.mem[HWREG_IF_INTERRUPT_FLAG] & flag) != 0;
+        self.cpu.mem[HWREG_IF_INTERRUPT_FLAG] &= !flag;
 
-        (DMG_SYSTEM_CLOCK_HZ as f32 / clock_interval).round() as u32
+        ret
     }
 
     /// 1ステレオサンプル出力
     pub fn output_audio_sample(&mut self) -> [f32; 2] {
-        let interrupt_cycles = self.compute_play_interrupt_interval_system_clocks();
         while self.elapsed_cycles < self.audio_output_interval_cycles {
             // 命令実行
             let (_, cycle) = self.cpu.execute_step();
@@ -104,12 +94,10 @@ impl<'a> GBSPlayer<'a> {
             }
             // サイクルカウントを累積
             self.elapsed_cycles += cycle as u32;
-            self.interrupt_cycles += cycle as u32;
             // 割り込み処理
-            if self.interrupt_cycles >= interrupt_cycles {
+            if self.check_play_interrupt() {
                 // 再生ルーチンのアドレスにジャンプ
                 self.cpu.regs.pc = self.gbs_header.play_address;
-                self.interrupt_cycles -= interrupt_cycles; 
             }
         }
         self.elapsed_cycles -= self.audio_output_interval_cycles;

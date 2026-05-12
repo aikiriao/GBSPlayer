@@ -37,15 +37,15 @@ const HRAM_START_ADDRESS: usize = 0xFF80;
 
 // 割り込み要求・有効フラグ
 /// ジョイパッド割り込み
-const INTERRUPT_FLAG_JOYPAD: u8 = 1 << 4;
+pub const SM83_INTERRUPT_FLAG_JOYPAD: u8 = 1 << 4;
 /// シリアル割り込み
-const INTERRUPT_FLAG_SERIAL: u8 = 1 << 3;
+pub const SM83_INTERRUPT_FLAG_SERIAL: u8 = 1 << 3;
 /// タイマー割り込み
-const INTERRUPT_FLAG_TIMER: u8 = 1 << 2;
+pub const SM83_INTERRUPT_FLAG_TIMER: u8 = 1 << 2;
 /// LCD割り込み
-const INTERRUPT_FLAG_LCD: u8 = 1 << 1;
+pub const SM83_INTERRUPT_FLAG_LCD: u8 = 1 << 1;
 /// VBlank割り込み
-const INTERRUPT_FLAG_VBLANK: u8 = 1 << 0;
+pub const SM83_INTERRUPT_FLAG_VBLANK: u8 = 1 << 0;
 
 // MBC(Memory Bank Controller)レジスタアドレスの範囲
 /// MBC1 RAM gate register
@@ -337,14 +337,14 @@ impl<'a> SM83<'a> {
         self.timer_tick_mcycle_count += 1;
         if self.timer_tick_mcycle_count >= self.timer_increment_mcycle {
             if self.timer_enable {
-                let tima = self.mem[HWREG_TIMA_TIMER_COUNTER];
-                self.mem[HWREG_TIMA_TIMER_COUNTER] = if tima == 0xFF {
+                let (tima, overflow) = self.mem[HWREG_TIMA_TIMER_COUNTER].overflowing_add(1);
+                self.mem[HWREG_TIMA_TIMER_COUNTER] = if overflow {
                     // タイマー割り込み要求フラグを立てる
-                    self.mem[HWREG_IF_INTERRUPT_FLAG] |= INTERRUPT_FLAG_TIMER;
+                    self.mem[HWREG_IF_INTERRUPT_FLAG] |= SM83_INTERRUPT_FLAG_TIMER;
                     // TIMER MODULOの値にリセット
                     self.mem[HWREG_TMA_TIMER_MODULO]
                 } else {
-                    tima.wrapping_add(1)
+                    tima
                 };
             }
             self.timer_tick_mcycle_count -= self.timer_increment_mcycle;
@@ -361,7 +361,7 @@ impl<'a> SM83<'a> {
         self.vblank_mcycle_count += 1.0;
         if self.vblank_mcycle_count >= SYSTEM_CLOCKS_PER_VBLANK {
             // VBLANK割り込み要求フラグを立てる
-            self.mem[HWREG_IF_INTERRUPT_FLAG] |= INTERRUPT_FLAG_VBLANK;
+            self.mem[HWREG_IF_INTERRUPT_FLAG] |= SM83_INTERRUPT_FLAG_VBLANK;
             self.vblank_mcycle_count -= SYSTEM_CLOCKS_PER_VBLANK;
         }
 
