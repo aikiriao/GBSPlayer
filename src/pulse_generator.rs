@@ -4,6 +4,8 @@ use crate::types::*;
 
 /// パルスジェネレータの動作クロック
 const PULSE_GENERATOR_CLOCK_HZ: u32 = 1048576;
+/// スイープの更新頻度
+const SWEEP_UPDATE_PERIOD_UNIT_HZ: u32 = 128;
 
 /// デューティ比に対応する矩形波テーブル
 const PULSE_TABLE_DUTY125: [u8; 8] = [1, 1, 1, 1, 1, 1, 1, 0];
@@ -51,6 +53,12 @@ pub struct PulseGenerator {
     sample_update_period: u16,
     /// サンプル更新のためのシステムクロックカウンタ
     sample_update_counter: u16,
+    /// 周期更新するか
+    period_update_enable: bool,
+    /// 周期更新間隔
+    period_update_period: u16,
+    /// 周期更新のためのシステムクロックカウンタ
+    period_update_counter: u16,
     /// 持続時間有効か
     length_enable: bool,
     /// 再生要求フラグ
@@ -71,6 +79,9 @@ impl PulseGenerator {
             period: 0,
             sample_update_period: 0,
             sample_update_counter: 0,
+            period_update_enable: false,
+            period_update_period: 0,
+            period_update_counter: 0,
             length_enable: false,
             trigger: false,
             eg: EnvelopeGenerator::new(PULSE_GENERATOR_CLOCK_HZ),
@@ -87,6 +98,14 @@ impl PulseGenerator {
             SweepDirection::Negative
         };
         self.period_sweep_step = value & 0x7;
+        if self.period_sweep_pace > 0 {
+            self.period_update_period = (PULSE_GENERATOR_CLOCK_HZ
+                / (self.period_sweep_pace as u32 * SWEEP_UPDATE_PERIOD_UNIT_HZ))
+                as u16;
+            self.period_update_enable = true;
+        } else {
+            self.period_update_enable = false;
+        }
     }
 
     /// 長さタイマー・デューティの設定
@@ -179,12 +198,34 @@ impl PulseGenerator {
         self.eg.reset();
     }
 
-    /// 1システムクロック単位処理
+    /// 周期更新処理
+    fn update_period(&mut self) {
+        if self.period_update_enable {
+            self.period_update_counter += 1;
+            if self.period_update_counter >= self.period_update_period {
+                let overflow;
+                let delta = self.period >> (self.period_sweep_step as u16);
+                (self.period, overflow) = match self.period_sweep_direction {
+                    SweepDirection::Positive => self.period.overflowing_add(delta),
+                    SweepDirection::Negative => self.period.overflowing_sub(delta),
+                };
+                // オーバーフロー時はチャンネルを無効にする
+                if overflow {
+                    self.enable = false;
+                    self.period_sweep_pace = 0;
+                    self.period_update_enable = false;
+                }
+                self.period_update_counter -= self.period_update_period;
+            }
+        }
+    }
+
+    /// クロック単位処理
     pub fn clock_tick_1mhz(&mut self) -> Option<u8> {
         let mut out = None;
 
         // カウンタ増加
-        self.sample_update_counter = self.sample_update_counter.wrapping_add(1);
+        self.sample_update_counter += 1;
 
         // サンプル更新
         if self.sample_update_counter >= self.sample_update_period {
@@ -192,6 +233,9 @@ impl PulseGenerator {
             self.pulse_table_index = (self.pulse_table_index + 1) & 0x7;
             self.sample_update_counter -= self.sample_update_period;
         }
+
+        // 周期更新
+        self.update_period();
 
         // エンベロープジェネレータの更新
         self.eg.clock_tick();
