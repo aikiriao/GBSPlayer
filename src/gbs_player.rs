@@ -88,10 +88,6 @@ impl<'a> GBSPlayer<'a> {
         while self.elapsed_cycles < self.audio_output_interval_cycles {
             // 命令実行
             let (_, cycle) = self.cpu.execute_step();
-            // システムクロックティック
-            for _ in 0..cycle {
-                self.cpu.system_clock_tick();
-            }
             // サイクルカウントを累積
             self.elapsed_cycles += cycle as u32;
             // 割り込み処理

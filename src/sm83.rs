@@ -217,6 +217,10 @@ impl<'a> SM83<'a> {
         self.regs.pc += len;
         // 命令実行
         let cycle = self.execute_opcode(&opcode);
+        // システムクロックティック
+        for _ in 0..cycle {
+            self.system_clock_tick();
+        }
         (opcode, cycle)
     }
 
@@ -332,7 +336,7 @@ impl<'a> SM83<'a> {
     }
 
     /// システムクロック(M-Cycle)ティック
-    pub fn system_clock_tick(&mut self) {
+    fn system_clock_tick(&mut self) {
         // タイマーティック
         self.timer_tick_mcycle_count += 1;
         if self.timer_tick_mcycle_count >= self.timer_increment_mcycle {
