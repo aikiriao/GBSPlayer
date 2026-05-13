@@ -57,7 +57,7 @@ impl EnvelopeGenerator {
     pub fn get_volume_envelope(&self) -> u8 {
         let mut ret = 0;
         ret |= (self.initial_volume as u8) << 4;
-        ret |= if self.volume_delta < 0 { 0x8 } else { 0 };
+        ret |= if self.volume_delta < 0 { 0 } else { 0x8 };
         ret |= self.volume_sweep_pace;
         ret
     }
