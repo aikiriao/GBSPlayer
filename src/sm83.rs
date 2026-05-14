@@ -237,6 +237,7 @@ impl<'a> SM83<'a> {
             if (iflags & (1 << i)) != 0 {
                 // 割り込みフラグをクリア
                 self.ime_flag = false;
+                self.mem[HWREG_IF_INTERRUPT_FLAG] &= !(1 << i);
                 // 現在のPCをスタックにプッシュ
                 self.push_stack(((self.regs.pc >> 8) & 0xFF) as u8);
                 self.push_stack(((self.regs.pc >> 0) & 0xFF) as u8);
