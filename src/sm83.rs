@@ -256,65 +256,69 @@ impl<'a> SM83<'a> {
 
     /// 8bitメモリ書き込み
     pub fn write_mem_u8(&mut self, address: usize, value: u8) {
-        if (address >= RAMG_START_ADDRESS) && (address < BANK1_START_ADDRESS) {
-            self.ramg = value & 0xF;
-        } else if (address >= BANK1_START_ADDRESS) && (address < BANK2_START_ADDRESS) {
-            self.mbc1_bank1 = value & 0x1F;
-            // 0は強制的に1として扱われる
-            if self.mbc1_bank1 == 0 {
-                self.mbc1_bank1 = 1;
+        match address {
+            RAMG_START_ADDRESS..BANK1_START_ADDRESS => {
+                self.ramg = value & 0xF;
             }
-            self.switch_rom_bank_mbc1();
-        } else if (address >= BANK2_START_ADDRESS) && (address < MODE_START_ADDRESS) {
-            self.mbc1_bank2 = value & 0x3;
-            self.switch_rom_bank_mbc1();
-        } else if (address >= MODE_START_ADDRESS) && (address < VRAM_START_ADDRESS) {
-            self.mbc1_mode = value & 0x1;
-            self.switch_rom_bank_mbc1();
-            // TODO: RAMバンクスイッチ
-        } else if (address >= EXTERNAL_RAM_START_ADDRESS) && (address < WRAM_BANK0_START_ADDRESS) {
-            // 外部RAM
-            // RAMGが特定の値のみ有効
-            if self.ramg == 0xA {
+            BANK1_START_ADDRESS..BANK2_START_ADDRESS => {
+                self.mbc1_bank1 = value & 0x1F;
+                // 0は強制的に1として扱われる
+                if self.mbc1_bank1 == 0 {
+                    self.mbc1_bank1 = 1;
+                }
+                self.switch_rom_bank_mbc1();
+            }
+            BANK2_START_ADDRESS..MODE_START_ADDRESS => {
+                self.mbc1_bank2 = value & 0x3;
+                self.switch_rom_bank_mbc1();
+            }
+            MODE_START_ADDRESS..VRAM_START_ADDRESS => {
+                self.mbc1_mode = value & 0x1;
+                self.switch_rom_bank_mbc1();
+                // TODO: RAMバンクスイッチ
+            }
+            EXTERNAL_RAM_START_ADDRESS..WRAM_BANK0_START_ADDRESS => {
+                // 外部RAM
+                // RAMGが特定の値のみ有効
+                if self.ramg == 0xA {
+                    self.mem[address] = value;
+                }
+            }
+            WRAM_BANK0_START_ADDRESS..ECHO_RAM_START_ADDRESS => {
+                // RAM
                 self.mem[address] = value;
             }
-        } else if (address >= WRAM_BANK0_START_ADDRESS) && (address < ECHO_RAM_START_ADDRESS) {
-            // RAM
-            self.mem[address] = value;
-        } else if (address >= HWREG_P1_JOYPAD) && (address < HRAM_START_ADDRESS) {
-            // ハードウェアレジスタへの書き込み
-            match address {
-                HWREG_DIV_REGISTER => {
-                    // どの値の書き込みでも0にリセット
-                    self.mem[HWREG_DIV_REGISTER] = 0;
-                    return;
-                }
-                HWREG_TIMA_TIMER_COUNTER => {
-                    // そのまま書き込む
-                }
-                HWREG_TMA_TIMER_MODULO => {
-                    // そのまま書き込む（TIMAのリセット時に参照）
-                }
-                HWREG_TAC_TIMER_CONTROL => {
-                    self.timer_enable = (value & 0x4) != 0;
-                    self.timer_increment_mcycle = match value & 0x3 {
-                        0 => 256,
-                        1 => 4,
-                        2 => 16,
-                        3 => 64,
-                        _ => unreachable!(),
-                    };
-                }
-                HWREG_NR10_CHANNEL1_SWEEP..HWREG_LCDC_LCD_CONTROL => {
-                    self.apu.write_register(address, value);
-                }
-                _ => {}
+            HWREG_DIV_REGISTER => {
+                // どの値の書き込みでも0にリセット
+                self.mem[HWREG_DIV_REGISTER] = 0;
+                return;
             }
-            // 書き込み値は保持しておく
-            self.mem[address] = value;
-        } else if address >= HRAM_START_ADDRESS {
-            // HRAM
-            self.mem[address] = value;
+            HWREG_TIMA_TIMER_COUNTER => {
+                // そのまま書き込む
+                self.mem[address] = value;
+            }
+            HWREG_TMA_TIMER_MODULO => {
+                // そのまま書き込む（TIMAのリセット時に参照）
+                self.mem[address] = value;
+            }
+            HWREG_TAC_TIMER_CONTROL => {
+                self.timer_enable = (value & 0x4) != 0;
+                self.timer_increment_mcycle = match value & 0x3 {
+                    0 => 256,
+                    1 => 4,
+                    2 => 16,
+                    3 => 64,
+                    _ => unreachable!(),
+                };
+                self.mem[address] = value;
+            }
+            HWREG_NR10_CHANNEL1_SWEEP..HWREG_LCDC_LCD_CONTROL => {
+                self.apu.write_register(address, value);
+                self.mem[address] = value;
+            }
+            _ => {
+                self.mem[address] = value;
+            }
         }
         trace!("W: 0x{:04X} <- {:02X}", address, value);
     }
