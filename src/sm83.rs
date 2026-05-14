@@ -321,18 +321,13 @@ impl<'a> SM83<'a> {
 
     /// 8bitメモリ読み込み
     pub fn read_mem_u8(&mut self, address: usize) -> u8 {
-        trace!("R: 0x{:04X} -> {:02X}", address, self.mem[address]);
-        // ハードウェアレジスタからの読み込み
-        if (address >= HWREG_P1_JOYPAD) && (address <= HWREG_IE_INTERRUPT_ENABLE) {
-            match address {
-                // TODO: 読み込みに副作用がある可能性
-                HWREG_NR10_CHANNEL1_SWEEP..HWREG_LCDC_LCD_CONTROL => {
-                    return self.apu.read_register(address);
-                }
-                _ => {}
-            }
-        }
-        self.mem[address]
+        let data = match address {
+            HWREG_NR10_CHANNEL1_SWEEP..HWREG_LCDC_LCD_CONTROL => self.apu.read_register(address),
+            _ => self.mem[address],
+        };
+
+        trace!("R: 0x{:04X} -> {:02X}", address, data);
+        data
     }
 
     /// システムクロック(M-Cycle)ティック
