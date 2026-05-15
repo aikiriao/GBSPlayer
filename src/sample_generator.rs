@@ -168,8 +168,7 @@ impl SampleGenerator {
 
         // サンプル更新
         if self.sample_update_counter >= self.sample_update_period {
-            let sample = self.wave_ram[self.wave_ram_index] >> self.output_level_shift;
-            out = Some(sample);
+            out = Some(self.wave_ram[self.wave_ram_index] >> self.output_level_shift);
             self.wave_ram_index = (self.wave_ram_index + 1) & 0x1F;
             self.sample_update_counter -= self.sample_update_period;
         }
