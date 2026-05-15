@@ -294,12 +294,8 @@ impl<'a> SM83<'a> {
                 self.mem[HWREG_DIV_REGISTER] = 0;
                 return;
             }
-            HWREG_TIMA_TIMER_COUNTER => {
+            HWREG_TIMA_TIMER_COUNTER | HWREG_TMA_TIMER_MODULO => {
                 // そのまま書き込む
-                self.mem[address] = value;
-            }
-            HWREG_TMA_TIMER_MODULO => {
-                // そのまま書き込む（TIMAのリセット時に参照）
                 self.mem[address] = value;
             }
             HWREG_TAC_TIMER_CONTROL => {
