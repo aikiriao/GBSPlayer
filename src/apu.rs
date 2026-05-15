@@ -84,7 +84,7 @@ impl APU {
                 self.pulse_generator[0].set_period_high_control(value);
             }
             HWREG_NR21_CHANNEL2_LENGTH_TIMER_DURY_CYCLE => {
-                self.pulse_generator[1].set_sweep(value);
+                self.pulse_generator[1].set_length_timer_duty_cycle(value);
             }
             HWREG_NR22_CHANNEL2_VOLUME_ENVELOPE => {
                 self.pulse_generator[1].set_volume_envelope(value);
