@@ -61,7 +61,7 @@ impl SampleGenerator {
 
     /// 出力レベルの設定
     pub fn set_output_level(&mut self, value: u8) {
-        self.output_level_shift = match (value >> 4) & 0x3 {
+        self.output_level_shift = match (value >> 5) & 0x3 {
             0 => 4,
             1 => 0,
             2 => 1,
@@ -87,10 +87,12 @@ impl SampleGenerator {
 
     /// 波形RAMの設定
     pub fn set_wave_ram(&mut self, address: usize, value: u8) {
-        // TODO: 再生中にセットすると書き込みは無視される
-        let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
-        self.wave_ram[smpl + 0] = (value >> 4) & 0xF;
-        self.wave_ram[smpl + 1] = (value >> 4) & 0xF;
+        // 再生中は書き込みは無視される
+        if !self.enable {
+            let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
+            self.wave_ram[smpl + 0] = (value >> 4) & 0xF;
+            self.wave_ram[smpl + 1] = (value >> 0) & 0xF;
+        }
     }
 
     /// DACのON/OFF
@@ -110,10 +112,10 @@ impl SampleGenerator {
     /// 出力レベルの設定
     pub fn get_output_level(&self) -> u8 {
         match self.output_level_shift {
-            4 => 0 << 4,
-            0 => 1 << 4,
-            1 => 2 << 4,
-            2 => 3 << 4,
+            4 => 0 << 5,
+            0 => 1 << 5,
+            1 => 2 << 5,
+            2 => 3 << 5,
             _ => unreachable!(),
         }
     }
@@ -134,21 +136,27 @@ impl SampleGenerator {
 
     /// 波形RAMの取得
     pub fn get_wave_ram(&self, address: usize) -> u8 {
-        // TODO: 再生中に読み出すと0xFFを返す
-        let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
-        (self.wave_ram[smpl + 0] << 4) | (self.wave_ram[smpl + 1])
+        if self.enable {
+            // 再生中に読み出すと0xFFを返す
+            0xFF
+        } else {
+            let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
+            (self.wave_ram[smpl + 0] << 4) | (self.wave_ram[smpl + 1])
+        }
     }
 
     /// トリガーON時の処理
     fn process_trigger(&mut self) {
         // チャンネルを有効に
         self.enable = true;
-        // 更新周期の設定
-        self.sample_update_period = 2048 - self.period;
         // 長さタイマーが切れていたらリセット
         if self.length_timer.expired {
             self.length_timer.reset();
         }
+        // 更新周期の設定
+        self.sample_update_period = 2048 - self.period;
+        // サンプル参照位置のリセット
+        self.wave_ram_index = 0;
     }
 
     /// 1システムクロック単位処理
@@ -156,22 +164,23 @@ impl SampleGenerator {
         let mut out = None;
 
         // カウンタ増加
-        self.sample_update_counter = self.sample_update_counter.wrapping_add(1);
+        self.sample_update_counter += 1;
 
         // サンプル更新
         if self.sample_update_counter >= self.sample_update_period {
-            out = Some(self.wave_ram[self.wave_ram_index]);
+            let sample = self.wave_ram[self.wave_ram_index] >> self.output_level_shift;
+            out = Some(sample);
             self.wave_ram_index = (self.wave_ram_index + 1) & 0x1F;
             self.sample_update_counter -= self.sample_update_period;
         }
+
+        // 長さタイマーの更新
+        self.length_timer.clock_tick();
 
         // 長さタイマーが時間切れしていたら無効に
         if self.length_timer.expired {
             self.enable = false;
         }
-
-        // 長さタイマーの更新
-        self.length_timer.clock_tick();
 
         out
     }
