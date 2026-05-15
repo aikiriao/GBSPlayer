@@ -50,8 +50,6 @@ impl<'a> GBSPlayer<'a> {
         self.cpu.regs.a = song_number;
         // スタックポインタ初期化
         self.cpu.regs.sp = self.gbs_header.stack_pointer;
-        // PCを初期化
-        self.cpu.regs.pc = self.gbs_header.init_address;
 
         // タイマー初期化
         self.cpu
@@ -64,6 +62,11 @@ impl<'a> GBSPlayer<'a> {
 
         // 経過クロックカウントをリセット
         self.elapsed_cycles = 0;
+
+        // PCを初期化 init_address をCALLしたようにする
+        self.push_stack(((self.cpu.regs.pc >> 8) & 0xFF) as u8);
+        self.push_stack(((self.cpu.regs.pc >> 0) & 0xFF) as u8);
+        self.cpu.regs.pc = self.gbs_header.init_address;
     }
 
     /// playルーチンの割り込みが発生しているか判定
@@ -83,6 +86,12 @@ impl<'a> GBSPlayer<'a> {
         ret
     }
 
+    /// スタックにデータをPUSH（SM83にも同様の関数はあるがSM83の関数は隠蔽したいため自前実装）
+    fn push_stack(&mut self, value: u8) {
+        self.cpu.regs.sp = self.cpu.regs.sp.wrapping_sub(1);
+        self.cpu.write_mem_u8(self.cpu.regs.sp as usize, value);
+    }
+
     /// 1ステレオサンプル出力
     pub fn output_audio_sample(&mut self) -> [f32; 2] {
         while self.elapsed_cycles < self.audio_output_interval_cycles {
@@ -92,7 +101,9 @@ impl<'a> GBSPlayer<'a> {
             self.elapsed_cycles += cycle as u32;
             // 割り込み処理
             if self.check_play_interrupt() {
-                // 再生ルーチンのアドレスにジャンプ
+                // 再生ルーチンのアドレスをCALL
+                self.push_stack(((self.cpu.regs.pc >> 8) & 0xFF) as u8);
+                self.push_stack(((self.cpu.regs.pc >> 0) & 0xFF) as u8);
                 self.cpu.regs.pc = self.gbs_header.play_address;
             }
         }
