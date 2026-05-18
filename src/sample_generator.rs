@@ -128,7 +128,7 @@ impl SampleGenerator {
     /// 周期上位ビット・制御フラグ設定値の取得
     pub fn get_period_high_control(&self) -> u8 {
         let mut ret = 0;
-        ret |= (self.period & 0x7) as u8;
+        ret |= ((self.period >> 8) & 0x7) as u8;
         ret |= if self.length_enable { 0x40 } else { 0 };
         ret |= if self.trigger { 0x80 } else { 0 };
         ret
