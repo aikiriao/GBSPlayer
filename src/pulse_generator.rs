@@ -99,7 +99,9 @@ impl PulseGenerator {
         };
         self.period_sweep_step = value & 0x7;
         if self.period_sweep_pace > 0 {
-            self.period_update_period = ((self.period_sweep_pace as u32 * PULSE_GENERATOR_CLOCK_HZ) / SWEEP_UPDATE_PERIOD_UNIT_HZ) as u16;
+            self.period_update_period = (PULSE_GENERATOR_CLOCK_HZ
+                / (self.period_sweep_pace as u32 * SWEEP_UPDATE_PERIOD_UNIT_HZ))
+                as u16;
             self.period_update_enable = true;
         } else {
             self.period_update_enable = false;
