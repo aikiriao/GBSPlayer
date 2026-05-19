@@ -52,6 +52,9 @@ impl SampleGenerator {
     /// DACのON/OFF
     pub fn set_dac_enable(&mut self, value: u8) {
         self.dac_enable = (value & 0x80) != 0;
+        if !self.dac_enable {
+            self.enable = false;
+        }
     }
 
     /// 長さタイマーの設定
