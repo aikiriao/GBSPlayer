@@ -63,9 +63,7 @@ impl<'a> GBSPlayer<'a> {
         // 経過クロックカウントをリセット
         self.elapsed_cycles = 0;
 
-        // PCを初期化 init_address をCALLしたようにする
-        self.push_stack(((self.cpu.regs.pc >> 8) & 0xFF) as u8);
-        self.push_stack(((self.cpu.regs.pc >> 0) & 0xFF) as u8);
+        // PCを初期化
         self.cpu.regs.pc = self.gbs_header.init_address;
     }
 
@@ -101,9 +99,9 @@ impl<'a> GBSPlayer<'a> {
             self.elapsed_cycles += cycle as u32;
             // 割り込み処理
             if self.check_play_interrupt() {
-                // 再生ルーチンのアドレスをCALL
-                self.push_stack(((self.cpu.regs.pc >> 8) & 0xFF) as u8);
-                self.push_stack(((self.cpu.regs.pc >> 0) & 0xFF) as u8);
+                // 再生ルーチンのアドレスをCALL 戻り先は0x0000とする
+                self.push_stack(0);
+                self.push_stack(0);
                 self.cpu.regs.pc = self.gbs_header.play_address;
             }
         }
