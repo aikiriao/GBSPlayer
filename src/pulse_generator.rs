@@ -49,6 +49,8 @@ pub struct PulseGenerator {
     length_timer: LengthTimer,
     /// 周期
     period: u16,
+    /// 周期の変更があったか？
+    period_changed: bool,
     /// サンプル更新間隔
     sample_update_period: u16,
     /// サンプル更新のためのシステムクロックカウンタ
@@ -77,6 +79,7 @@ impl PulseGenerator {
             pulse_table: &PULSE_TABLE_DUTY125,
             pulse_table_index: 0,
             period: 0,
+            period_changed: false,
             sample_update_period: 0,
             sample_update_counter: 0,
             period_update_enable: false,
@@ -128,11 +131,13 @@ impl PulseGenerator {
     /// 周期下位ビット設定
     pub fn set_period_low(&mut self, value: u8) {
         self.period = (self.period & 0xFF00) | (value as u16);
+        self.period_changed = true;
     }
 
     /// 周期上位ビット・制御フラグ設定
     pub fn set_period_high_control(&mut self, value: u8) {
         self.period = (((value & 0x7) as u16) << 8) | (self.period & 0x00FF);
+        self.period_changed = true;
         self.length_enable = (value & 0x40) != 0;
         self.trigger = (value & 0x80) != 0;
         if self.trigger {
@@ -232,6 +237,11 @@ impl PulseGenerator {
             out = Some(self.pulse_table[self.pulse_table_index] * self.eg.get_volume());
             self.pulse_table_index = (self.pulse_table_index + 1) & 0x7;
             self.sample_update_counter -= self.sample_update_period;
+            // 周期の反映はサンプル出力後
+            if self.period_changed {
+                self.sample_update_period = 2048 - self.period;
+                self.period_changed = false;
+            }
         }
 
         // 周期更新

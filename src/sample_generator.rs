@@ -15,6 +15,8 @@ pub struct SampleGenerator {
     output_level_shift: u8,
     /// 周期
     period: u16,
+    /// 周期の変更があったか？
+    period_changed: bool,
     /// サンプル更新間隔
     sample_update_period: u16,
     /// サンプル更新のためのシステムクロックカウンタ
@@ -40,6 +42,7 @@ impl SampleGenerator {
             output_level_shift: 0,
             length_enable: false,
             period: 0,
+            period_changed: false,
             sample_update_period: 0,
             sample_update_counter: 0,
             trigger: false,
@@ -76,11 +79,13 @@ impl SampleGenerator {
     /// 周期下位ビット設定
     pub fn set_period_low(&mut self, value: u8) {
         self.period = (self.period & 0xFF00) | (value as u16);
+        self.period_changed = true;
     }
 
     /// 周期上位ビット・制御フラグ設定
     pub fn set_period_high_control(&mut self, value: u8) {
         self.period = (((value & 0x7) as u16) << 8) | (self.period & 0x00FF);
+        self.period_changed = true;
         self.length_enable = (value & 0x40) != 0;
         self.trigger = (value & 0x80) != 0;
         if self.trigger {
@@ -159,7 +164,7 @@ impl SampleGenerator {
         // 更新周期の設定
         self.sample_update_period = 2048 - self.period;
         // サンプル参照位置のリセット
-        self.wave_ram_index = 0;
+        self.wave_ram_index = 1;
     }
 
     /// 1システムクロック単位処理
@@ -174,6 +179,11 @@ impl SampleGenerator {
             out = Some(self.wave_ram[self.wave_ram_index] >> self.output_level_shift);
             self.wave_ram_index = (self.wave_ram_index + 1) & 0x1F;
             self.sample_update_counter -= self.sample_update_period;
+            // 周期の反映はサンプル出力後
+            if self.period_changed {
+                self.sample_update_period = 2048 - self.period;
+                self.period_changed = false;
+            }
         }
 
         // 長さタイマーの更新
