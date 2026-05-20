@@ -63,7 +63,9 @@ impl<'a> GBSPlayer<'a> {
         // 経過クロックカウントをリセット
         self.elapsed_cycles = 0;
 
-        // PCを初期化
+        // PCを初期化 戻り先は0x0000とする
+        self.push_stack(0);
+        self.push_stack(0);
         self.cpu.regs.pc = self.gbs_header.init_address;
     }
 
