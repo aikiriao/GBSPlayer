@@ -119,12 +119,12 @@ impl NoiseGenerator {
             (self.clock_divider as u32) * (1 << (self.clock_shift as u32))
         };
 
-        // 長さタイマーが切れていたらリセット
+        // 長さタイマーが切れていたら再度トリガー処理
         if self.length_timer.expired {
-            self.length_timer.reset();
+            self.length_timer.process_trigger();
         }
-        // エンベロープジェネレータのリセット
-        self.eg.reset();
+        // エンベロープジェネレータのトリガー処理
+        self.eg.process_trigger();
         // LFSRビットのリセット
         self.lfsr = 0;
     }

@@ -7,6 +7,8 @@ pub struct EnvelopeGenerator {
     pub enable: bool,
     /// ボリューム現在値（更新を簡易にするために符号付き）
     volume: i8,
+    /// ボリューム更新方向（false: 負、true: 正）
+    volume_delta_dir: bool,
     /// ボリューム更新値
     volume_delta: i8,
     /// 初期ボリューム
@@ -29,6 +31,7 @@ impl EnvelopeGenerator {
         Self {
             enable: false,
             volume: 0,
+            volume_delta_dir: false,
             volume_delta: 0,
             initial_volume: 0,
             volume_sweep_pace: 0,
@@ -41,16 +44,9 @@ impl EnvelopeGenerator {
     /// ボリューム・エンベロープの設定
     pub fn set_volume_envelope(&mut self, value: u8) {
         self.initial_volume = ((value >> 4) & 0xF) as i8;
-        self.volume_delta = if (value & 0x8) == 0 { -1 } else { 1 };
+        self.volume_delta_dir = (value & 0x8) != 0;
         self.volume_sweep_pace = value & 0x7;
-        // 更新間隔クロックの設定
-        self.volume_update_period = if self.volume_sweep_pace == 0 {
-            self.enable = false;
-            0
-        } else {
-            self.enable = true;
-            (self.volume_sweep_pace as u32) * self.update_period
-        };
+        self.enable = self.volume_sweep_pace != 0;
     }
 
     /// ボリューム・エンベロープの取得
@@ -67,12 +63,16 @@ impl EnvelopeGenerator {
         self.volume as u8
     }
 
-    /// 内部状態リセット
-    pub fn reset(&mut self) {
+    /// トリガー時の処理
+    pub fn process_trigger(&mut self) {
         // エンベロープタイマーのリセット
         self.clock_count = 0;
         // ボリュームのリセット
         self.volume = self.initial_volume;
+        // 更新間隔クロックの設定
+        self.volume_update_period = (self.volume_sweep_pace as u32) * self.update_period;
+        // ボリューム更新方向の設定
+        self.volume_delta = if self.volume_delta_dir { 1 } else { -1 };
     }
 
     /// クロック単位処理

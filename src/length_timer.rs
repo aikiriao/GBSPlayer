@@ -13,6 +13,8 @@ pub struct LengthTimer {
     length_timer: u16,
     /// タイムアウトカウント
     timeout: u16,
+    /// タイムアウトカウント設定値
+    saved_timeout: u16,
     /// クロックカウント
     clock_count: u32,
     /// 更新クロック周期
@@ -30,6 +32,7 @@ impl LengthTimer {
             initial_length_timer: 0,
             length_timer: 0,
             timeout: 0,
+            saved_timeout: 0,
             clock_count: 0,
             update_period: clock_tick_hz / APU_SOUND_LENGTH_HZ,
         }
@@ -43,7 +46,7 @@ impl LengthTimer {
     /// 長さタイマーの設定
     pub fn set_length_timer(&mut self, initial_timer: u8, timeout: u16) {
         self.initial_length_timer = initial_timer;
-        self.timeout = timeout;
+        self.saved_timeout = timeout;
     }
 
     /// 有効フラグの取得
@@ -56,10 +59,11 @@ impl LengthTimer {
         self.initial_length_timer
     }
 
-    /// タイマーリセット
-    pub fn reset(&mut self) {
+    /// トリガー時の処理
+    pub fn process_trigger(&mut self) {
         self.length_timer = self.initial_length_timer as u16;
         self.expired = false;
+        self.timeout = self.saved_timeout;
         self.clock_count = 0;
     }
 

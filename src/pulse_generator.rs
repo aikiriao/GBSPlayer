@@ -193,14 +193,14 @@ impl PulseGenerator {
     fn process_trigger(&mut self) {
         // チャンネルを有効に
         self.enable = true;
-        // 長さタイマーが切れていたらリセット
+        // 長さタイマーが切れていたら再度トリガー処理
         if self.length_timer.expired {
-            self.length_timer.reset();
+            self.length_timer.process_trigger();
         }
         // 周期の設定
         self.sample_update_period = 2048 - self.period;
-        // エンベロープジェネレータのリセット
-        self.eg.reset();
+        // エンベロープジェネレータのトリガー処理
+        self.eg.process_trigger();
     }
 
     /// 周期更新処理

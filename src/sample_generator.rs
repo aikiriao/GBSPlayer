@@ -157,9 +157,9 @@ impl SampleGenerator {
     fn process_trigger(&mut self) {
         // チャンネルを有効に
         self.enable = true;
-        // 長さタイマーが切れていたらリセット
+        // 長さタイマーが切れていたら再度トリガー処理
         if self.length_timer.expired {
-            self.length_timer.reset();
+            self.length_timer.process_trigger();
         }
         // 更新周期の設定
         self.sample_update_period = 2048 - self.period;
