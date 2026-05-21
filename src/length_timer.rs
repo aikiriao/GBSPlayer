@@ -69,16 +69,15 @@ impl LengthTimer {
 
     /// クロック単位処理
     pub fn clock_tick(&mut self) {
-        self.clock_count += 1;
-        if self.enable
-            && !self.expired
-            && self.clock_count >= self.update_period
-        {
-            self.length_timer += 1;
-            if self.length_timer >= self.timeout {
-                self.expired = true;
+        if self.enable && !self.expired {
+            self.clock_count += 1;
+            if self.clock_count >= self.update_period {
+                self.length_timer += 1;
+                if self.length_timer >= self.timeout {
+                    self.expired = true;
+                }
+                self.clock_count -= self.update_period;
             }
-            self.clock_count -= self.update_period;
         }
     }
 }
