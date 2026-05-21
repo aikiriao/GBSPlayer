@@ -61,8 +61,6 @@ pub struct PulseGenerator {
     period_update_period: u16,
     /// 周期更新のためのシステムクロックカウンタ
     period_update_counter: u16,
-    /// 持続時間有効か
-    length_enable: bool,
     /// 再生要求フラグ
     trigger: bool,
 }
@@ -85,7 +83,6 @@ impl PulseGenerator {
             period_update_enable: false,
             period_update_period: 0,
             period_update_counter: 0,
-            length_enable: false,
             trigger: false,
             eg: EnvelopeGenerator::new(PULSE_GENERATOR_CLOCK_HZ),
             length_timer: LengthTimer::new(PULSE_GENERATOR_CLOCK_HZ),
@@ -138,7 +135,7 @@ impl PulseGenerator {
     pub fn set_period_high_control(&mut self, value: u8) {
         self.period = (((value & 0x7) as u16) << 8) | (self.period & 0x00FF);
         self.period_changed = true;
-        self.length_enable = (value & 0x40) != 0;
+        self.length_timer.set_enable((value & 0x40) != 0);
         self.trigger = (value & 0x80) != 0;
         if self.trigger {
             self.process_trigger();
@@ -184,7 +181,11 @@ impl PulseGenerator {
     pub fn get_period_high_control(&self) -> u8 {
         let mut ret = 0;
         ret |= ((self.period >> 8) & 0x7) as u8;
-        ret |= if self.length_enable { 0x40 } else { 0 };
+        ret |= if self.length_timer.get_enable() {
+            0x40
+        } else {
+            0
+        };
         ret |= if self.trigger { 0x80 } else { 0 };
         ret
     }
