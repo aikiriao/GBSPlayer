@@ -6,7 +6,6 @@ pub struct GBSPlayer<'a> {
     gbs_header: GBSFileHeader,
     cpu: SM83<'a>,
     sampling_rate: u32,
-    audio_output_interval_cycles: u32,
     elapsed_cycles: u32,
 }
 
@@ -17,7 +16,6 @@ impl<'a> GBSPlayer<'a> {
             gbs_header: gbs_header.clone(),
             cpu: SM83::new(rom),
             sampling_rate: sampling_rate,
-            audio_output_interval_cycles: (DMG_SYSTEM_CLOCK_HZ as f32 / sampling_rate as f32).round() as u32,
             elapsed_cycles: 0,
         }
     }
@@ -94,11 +92,11 @@ impl<'a> GBSPlayer<'a> {
 
     /// 1ステレオサンプル出力
     pub fn output_audio_sample(&mut self) -> [f32; 2] {
-        while self.elapsed_cycles < self.audio_output_interval_cycles {
+        while self.elapsed_cycles < DMG_SYSTEM_CLOCK_HZ {
             // 命令実行
             let (_, cycle) = self.cpu.execute_step();
             // サイクルカウントを累積
-            self.elapsed_cycles += cycle as u32;
+            self.elapsed_cycles += cycle as u32 * self.sampling_rate;
             // 割り込み処理
             if self.check_play_interrupt() {
                 // 再生ルーチンのアドレスをCALL 戻り先は割り込みベクタを避けて0x0100とする
@@ -107,7 +105,7 @@ impl<'a> GBSPlayer<'a> {
                 self.cpu.regs.pc = self.gbs_header.play_address;
             }
         }
-        self.elapsed_cycles -= self.audio_output_interval_cycles;
+        self.elapsed_cycles -= DMG_SYSTEM_CLOCK_HZ;
         self.cpu.output_audio_sample()
     }
 }
