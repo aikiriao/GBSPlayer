@@ -62,8 +62,8 @@ impl<'a> GBSPlayer<'a> {
         self.elapsed_cycles = 0;
 
         // PCを初期化 戻り先は割り込みベクタを避けて0x0100とする
+        self.push_stack(0x01);
         self.push_stack(0x00);
-        self.push_stack(0x10);
         self.cpu.regs.pc = self.gbs_header.init_address;
     }
 
@@ -100,8 +100,8 @@ impl<'a> GBSPlayer<'a> {
             // 割り込み処理
             if self.check_play_interrupt() {
                 // 再生ルーチンのアドレスをCALL 戻り先は割り込みベクタを避けて0x0100とする
+                self.push_stack(0x01);
                 self.push_stack(0x00);
-                self.push_stack(0x10);
                 self.cpu.regs.pc = self.gbs_header.play_address;
             }
         }
