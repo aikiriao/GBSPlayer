@@ -66,6 +66,12 @@ impl NoiseGenerator {
         self.clock_divider = value & 0x7;
         // 更新用ビットマスク作成
         self.lfsr_mask = if self.lfsr_short_mode { 0x8080 } else { 0x8000 };
+        // LFSRの更新頻度を計算
+        self.lfsr_update_period = if self.clock_divider == 0 {
+            (1 << (self.clock_shift as u32)) / 2
+        } else {
+            (self.clock_divider as u32) * (1 << (self.clock_shift as u32))
+        };
     }
 
     /// 制御フラグ設定
@@ -112,12 +118,6 @@ impl NoiseGenerator {
     fn process_trigger(&mut self) {
         // チャンネルを有効に
         self.enable = true;
-        // LFSRの更新頻度を計算
-        self.lfsr_update_period = if self.clock_divider == 0 {
-            (1 << (self.clock_shift as u32)) / 2
-        } else {
-            (self.clock_divider as u32) * (1 << (self.clock_shift as u32))
-        };
 
         // 長さタイマーが切れていたら再度トリガー処理
         if self.length_timer.expired {
