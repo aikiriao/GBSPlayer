@@ -46,7 +46,7 @@ impl EnvelopeGenerator {
         self.initial_volume = ((value >> 4) & 0xF) as i8;
         self.volume_delta_dir = (value & 0x8) != 0;
         self.volume_sweep_pace = value & 0x7;
-        self.enable = self.volume_sweep_pace != 0;
+        self.enable = ((value >> 3) & 0x1F) != 0;
     }
 
     /// ボリューム・エンベロープの取得
