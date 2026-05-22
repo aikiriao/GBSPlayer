@@ -171,27 +171,29 @@ impl SampleGenerator {
     pub fn clock_tick_2mhz(&mut self) -> Option<u8> {
         let mut out = None;
 
-        // カウンタ増加
-        self.sample_update_counter += 1;
+        if self.enable {
+            // カウンタ増加
+            self.sample_update_counter += 1;
 
-        // サンプル更新
-        if self.sample_update_counter >= self.sample_update_period {
-            out = Some(self.wave_ram[self.wave_ram_index] >> self.output_level_shift);
-            self.wave_ram_index = (self.wave_ram_index + 1) & 0x1F;
-            self.sample_update_counter -= self.sample_update_period;
-            // 周期の反映はサンプル出力後
-            if self.period_changed {
-                self.sample_update_period = 2048 - self.period;
-                self.period_changed = false;
+            // サンプル更新
+            if self.sample_update_counter >= self.sample_update_period {
+                out = Some(self.wave_ram[self.wave_ram_index] >> self.output_level_shift);
+                self.wave_ram_index = (self.wave_ram_index + 1) & 0x1F;
+                self.sample_update_counter -= self.sample_update_period;
+                // 周期の反映はサンプル出力後
+                if self.period_changed {
+                    self.sample_update_period = 2048 - self.period;
+                    self.period_changed = false;
+                }
             }
-        }
 
-        // 長さタイマーの更新
-        self.length_timer.clock_tick();
+            // 長さタイマーの更新
+            self.length_timer.clock_tick();
 
-        // 長さタイマーが時間切れしていたら無効に
-        if self.length_timer.expired {
-            self.enable = false;
+            // 長さタイマーが時間切れしていたら無効に
+            if self.length_timer.expired {
+                self.enable = false;
+            }
         }
 
         out
