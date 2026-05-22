@@ -77,7 +77,7 @@ impl EnvelopeGenerator {
 
     /// クロック単位処理
     pub fn clock_tick(&mut self) {
-        if self.enable {
+        if self.enable && (self.volume_update_period > 0) {
             self.clock_count += 1;
             if self.clock_count >= self.volume_update_period {
                 self.volume += self.volume_delta;
