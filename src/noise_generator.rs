@@ -133,35 +133,37 @@ impl NoiseGenerator {
     pub fn clock_tick_256khz(&mut self) -> Option<u8> {
         let mut out = None;
 
-        // カウンタ増加
-        self.lfsr_clock_count += 1;
-        if self.lfsr_clock_count >= self.lfsr_update_period {
-            // LFSRの更新
-            let lfsr0 = (self.lfsr >> 0) & 1;
-            let lfsr1 = (self.lfsr >> 1) & 1;
-            if lfsr0 == lfsr1 {
-                self.lfsr |= self.lfsr_mask;
-            } else {
-                self.lfsr &= !(self.lfsr_mask);
+        if self.enable {
+            // カウンタ増加
+            self.lfsr_clock_count += 1;
+            if self.lfsr_clock_count >= self.lfsr_update_period {
+                // LFSRの更新
+                let lfsr0 = (self.lfsr >> 0) & 1;
+                let lfsr1 = (self.lfsr >> 1) & 1;
+                if lfsr0 == lfsr1 {
+                    self.lfsr |= self.lfsr_mask;
+                } else {
+                    self.lfsr &= !(self.lfsr_mask);
+                }
+                self.lfsr >>= 1;
+
+                // 出力（右1bitシフトした結果のbit0を使うので変更前の1bitを使う）
+                out = Some(if lfsr1 != 0 { self.eg.get_volume() } else { 0 });
+
+                self.lfsr_clock_count -= self.lfsr_update_period;
             }
-            self.lfsr >>= 1;
 
-            // 出力（右1bitシフトした結果のbit0を使うので変更前の1bitを使う）
-            out = Some(if lfsr1 != 0 { self.eg.get_volume() } else { 0 });
+            // 長さタイマーが時間切れしていたら無効に
+            if self.length_timer.expired {
+                self.enable = false;
+            }
 
-            self.lfsr_clock_count -= self.lfsr_update_period;
+            // エンベロープジェネレータの更新
+            self.eg.clock_tick();
+
+            // 長さタイマーの更新
+            self.length_timer.clock_tick();
         }
-
-        // 長さタイマーが時間切れしていたら無効に
-        if self.length_timer.expired {
-            self.enable = false;
-        }
-
-        // エンベロープジェネレータの更新
-        self.eg.clock_tick();
-
-        // 長さタイマーの更新
-        self.length_timer.clock_tick();
 
         out
     }

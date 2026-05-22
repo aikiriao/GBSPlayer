@@ -230,33 +230,35 @@ impl PulseGenerator {
     pub fn clock_tick_1mhz(&mut self) -> Option<u8> {
         let mut out = None;
 
-        // カウンタ増加
-        self.sample_update_counter += 1;
+        if self.enable {
+            // カウンタ増加
+            self.sample_update_counter += 1;
 
-        // サンプル更新
-        if self.sample_update_counter >= self.sample_update_period {
-            out = Some(self.pulse_table[self.pulse_table_index] * self.eg.get_volume());
-            self.pulse_table_index = (self.pulse_table_index + 1) & 0x7;
-            self.sample_update_counter -= self.sample_update_period;
-            // 周期の反映はサンプル出力後
-            if self.period_changed {
-                self.sample_update_period = 2048 - self.period;
-                self.period_changed = false;
+            // サンプル更新
+            if self.sample_update_counter >= self.sample_update_period {
+                out = Some(self.pulse_table[self.pulse_table_index] * self.eg.get_volume());
+                self.pulse_table_index = (self.pulse_table_index + 1) & 0x7;
+                self.sample_update_counter -= self.sample_update_period;
+                // 周期の反映はサンプル出力後
+                if self.period_changed {
+                    self.sample_update_period = 2048 - self.period;
+                    self.period_changed = false;
+                }
             }
-        }
 
-        // 周期更新
-        self.update_period();
+            // 周期更新
+            self.update_period();
 
-        // エンベロープジェネレータの更新
-        self.eg.clock_tick();
+            // エンベロープジェネレータの更新
+            self.eg.clock_tick();
 
-        // 長さタイマーの更新
-        self.length_timer.clock_tick();
+            // 長さタイマーの更新
+            self.length_timer.clock_tick();
 
-        // 長さタイマーが時間切れしていたりエンベロープジェネレータが停止していたら止める
-        if self.length_timer.expired || !self.eg.enable {
-            self.enable = false;
+            // 長さタイマーが時間切れしていたりエンベロープジェネレータが停止していたら止める
+            if self.length_timer.expired || !self.eg.enable {
+                self.enable = false;
+            }
         }
 
         out
