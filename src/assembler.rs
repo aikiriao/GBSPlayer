@@ -324,7 +324,7 @@ pub fn parse_opcode(rom: &[u8]) -> (SM83Opcode, u16) {
                 SM83Opcode::JR {
                     oprand: SM83Oprand::CCAndE8 {
                         cc: SM83ConditionCode::NZ,
-                        e8: rom[2] as i8,
+                        e8: rom[1] as i8,
                     }
                 },
                 2
