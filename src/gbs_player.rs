@@ -2,9 +2,13 @@ use crate::gbs_file::*;
 use crate::sm83::*;
 use crate::types::*;
 
-pub struct GBSPlayer<R> 
-where 
-    R: AsRef<[u8]>
+/// init/playの戻り先アドレス
+/// 割り込みベクタを避けて0x0100とする
+const GBSPLAYER_INIT_PLAY_RETURN_ADDRESS: u16 = 0x0100;
+
+pub struct GBSPlayer<R>
+where
+    R: AsRef<[u8]>,
 {
     gbs_header: GBSFileHeader,
     cpu: SM83<R>,
@@ -13,8 +17,8 @@ where
 }
 
 impl<R> GBSPlayer<R>
-where 
-    R: AsRef<[u8]>
+where
+    R: AsRef<[u8]>,
 {
     /// コンストラクタ
     pub fn new(gbs_header: &GBSFileHeader, rom: R, sampling_rate: u32) -> Self {
@@ -73,10 +77,13 @@ where
         // 経過クロックカウントをリセット
         self.elapsed_cycles = 0;
 
-        // PCを初期化 戻り先は割り込みベクタを避けて0x0100とする
-        self.push_stack(0x01);
-        self.push_stack(0x00);
+        // 初期化（initアドレスに飛ぶ）
+        self.push_stack(((GBSPLAYER_INIT_PLAY_RETURN_ADDRESS >> 8) & 0xFF) as u8);
+        self.push_stack(((GBSPLAYER_INIT_PLAY_RETURN_ADDRESS >> 0) & 0xFF) as u8);
         self.cpu.regs.pc = self.gbs_header.init_address;
+        while self.cpu.regs.pc != GBSPLAYER_INIT_PLAY_RETURN_ADDRESS {
+            let _ = self.cpu.execute_step();
+        }
     }
 
     /// playルーチンの割り込みが発生しているか判定
@@ -103,11 +110,17 @@ where
             let (_, cycle) = self.cpu.execute_step();
             // サイクルカウントを累積
             self.elapsed_cycles += cycle as u32 * self.sampling_rate;
+            // 待機処理でplay/initアドレスに来てしまったら戻す
+            if self.cpu.regs.pc == self.gbs_header.play_address
+                || self.cpu.regs.pc == self.gbs_header.init_address
+            {
+                self.cpu.regs.pc = GBSPLAYER_INIT_PLAY_RETURN_ADDRESS;
+            }
             // 割り込み処理
             if self.check_play_interrupt() {
-                // 再生ルーチンのアドレスをCALL 戻り先は割り込みベクタを避けて0x0100とする
-                self.push_stack(0x01);
-                self.push_stack(0x00);
+                // 再生ルーチンのアドレスをCALL
+                self.push_stack(((GBSPLAYER_INIT_PLAY_RETURN_ADDRESS >> 8) & 0xFF) as u8);
+                self.push_stack(((GBSPLAYER_INIT_PLAY_RETURN_ADDRESS >> 0) & 0xFF) as u8);
                 self.cpu.regs.pc = self.gbs_header.play_address;
             }
         }
