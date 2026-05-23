@@ -1,6 +1,4 @@
-use crate::noise_generator::*;
-use crate::pulse_generator::*;
-use crate::sample_generator::*;
+use crate::sound_generator::*;
 use crate::types::*;
 use log::{trace, warn};
 
