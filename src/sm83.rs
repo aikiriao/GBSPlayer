@@ -58,13 +58,16 @@ pub const BANK2_START_ADDRESS: usize = 0x4000;
 pub const MODE_START_ADDRESS: usize = 0x6000;
 
 /// SM83エミュレータ
-pub struct SM83<'a> {
+pub struct SM83<R> 
+where 
+    R: AsRef<[u8]>
+{
     /// レジスタ
     pub regs: SM83Registers,
     /// 64KBメモリ領域
     pub mem: [u8; 65536],
     /// ROM
-    pub rom: &'a [u8],
+    pub rom: R,
     /// APU
     apu: APU,
     /// RAMゲートレジスタ
@@ -89,14 +92,17 @@ pub struct SM83<'a> {
     vblank_mcycle_count: f32,
 }
 
-impl<'a> SM83<'a> {
+impl<R> SM83<R> 
+where 
+    R: AsRef<[u8]>
+{
     /// コンストラクタ
-    pub fn new(rom: &'a [u8]) -> Self {
+    pub fn new(rom: R) -> Self {
         // ROMはBANK0のサイズ(0x4000)以上かつバンクのサイズ0x4000の倍数であることを要求
         // ROMの先頭0x4000バイトはBANK0に置かれる
         // ROMを配置する側が適切にサイズ調整し、残った領域は0埋めする
-        debug_assert!(rom.len() >= 0x4000);
-        debug_assert!((rom.len() % 0x4000) == 0);
+        debug_assert!(rom.as_ref().len() >= 0x4000);
+        debug_assert!((rom.as_ref().len() % 0x4000) == 0);
         Self {
             regs: SM83Registers {
                 a: 0,
@@ -198,7 +204,7 @@ impl<'a> SM83<'a> {
         let bank_number = (self.mbc1_bank2 << 5) | (self.mbc1_bank1);
         let offset = (bank_number as usize) * DMG_ROM_BANK_SIZE;
         self.mem[ROM_BANK1_START_ADDRESS..(ROM_BANK1_START_ADDRESS + DMG_ROM_BANK_SIZE)]
-            .copy_from_slice(&self.rom[offset..(offset + DMG_ROM_BANK_SIZE)]);
+            .copy_from_slice(&self.rom.as_ref()[offset..(offset + DMG_ROM_BANK_SIZE)]);
     }
 
     /// ステップ実行
@@ -387,16 +393,6 @@ impl<'a> SM83<'a> {
         trace!("W16: 0x{:04X} <- {:04X}", address, value,);
         self.mem[address + 0] = ((value >> 0) & 0xFF) as u8;
         self.mem[address + 1] = ((value >> 8) & 0xFF) as u8;
-    }
-
-    /// 16bitメモリ読み込み
-    fn read_mem_u16(&self, address: usize) -> u16 {
-        trace!(
-            "R16: 0x{:04X} -> {:04X}",
-            address,
-            ((self.mem[address + 1] as u16) << 8) | self.mem[address] as u16
-        );
-        ((self.mem[address + 1] as u16) << 8) | self.mem[address] as u16
     }
 
     /// オペコード実行

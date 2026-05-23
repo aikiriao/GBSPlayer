@@ -2,16 +2,22 @@ use crate::gbs_file::*;
 use crate::sm83::*;
 use crate::types::*;
 
-pub struct GBSPlayer<'a> {
+pub struct GBSPlayer<R> 
+where 
+    R: AsRef<[u8]>
+{
     gbs_header: GBSFileHeader,
-    cpu: SM83<'a>,
+    cpu: SM83<R>,
     sampling_rate: u32,
     elapsed_cycles: u32,
 }
 
-impl<'a> GBSPlayer<'a> {
+impl<R> GBSPlayer<R>
+where 
+    R: AsRef<[u8]>
+{
     /// コンストラクタ
-    pub fn new(gbs_header: &GBSFileHeader, rom: &'a [u8], sampling_rate: u32) -> Self {
+    pub fn new(gbs_header: &GBSFileHeader, rom: R, sampling_rate: u32) -> Self {
         Self {
             gbs_header: gbs_header.clone(),
             cpu: SM83::new(rom),
@@ -22,7 +28,7 @@ impl<'a> GBSPlayer<'a> {
 
     /// ロード
     pub fn load(&mut self) {
-        let mut load_size = self.cpu.rom.len();
+        let mut load_size = self.cpu.rom.as_ref().len();
         assert!(load_size >= 0x4000);
         assert!((load_size % 0x4000) == 0);
 
@@ -32,7 +38,13 @@ impl<'a> GBSPlayer<'a> {
             load_size = 0x8000;
         }
 
-        self.cpu.mem[..load_size].copy_from_slice(&self.cpu.rom[..load_size]);
+        self.cpu.mem[..load_size].copy_from_slice(&self.cpu.rom.as_ref()[..load_size]);
+    }
+
+    /// スタックにデータをPUSH（SM83にも同様の関数はあるがSM83の関数は隠蔽したいため自前実装）
+    fn push_stack(&mut self, value: u8) {
+        self.cpu.regs.sp = self.cpu.regs.sp.wrapping_sub(1);
+        self.cpu.write_mem_u8(self.cpu.regs.sp as usize, value);
     }
 
     /// 初期化
@@ -82,12 +94,6 @@ impl<'a> GBSPlayer<'a> {
         self.cpu.mem[HWREG_IF_INTERRUPT_FLAG] &= !flag;
 
         ret
-    }
-
-    /// スタックにデータをPUSH（SM83にも同様の関数はあるがSM83の関数は隠蔽したいため自前実装）
-    fn push_stack(&mut self, value: u8) {
-        self.cpu.regs.sp = self.cpu.regs.sp.wrapping_sub(1);
-        self.cpu.write_mem_u8(self.cpu.regs.sp as usize, value);
     }
 
     /// 1ステレオサンプル出力
