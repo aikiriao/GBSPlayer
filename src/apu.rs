@@ -143,10 +143,11 @@ impl APU {
             }
             HWREG_NR52_AUDIO_MASTER_CONTROL => {
                 self.audio_on = (value & 0x80) != 0;
-                self.pulse_generator[0].enable = ((value >> 0) & 0x1) != 0;
-                self.pulse_generator[1].enable = ((value >> 1) & 0x1) != 0;
-                self.sample_generator.enable = ((value >> 2) & 0x1) != 0;
-                self.noise_generator.enable = ((value >> 3) & 0x1) != 0;
+                // NOTE: 実機ではReadonlyだがパートごとに聞けるとうれしいので設定する
+                self.pulse_generator[0].enable = (value & 0x1) != 0;
+                self.pulse_generator[1].enable = (value & 0x2) != 0;
+                self.sample_generator.enable = (value & 0x4) != 0;
+                self.noise_generator.enable = (value & 0x8) != 0;
             }
             HWREG_CHANNEL3_WAVE_PATTERN_RAM_START..HWREG_CHANNEL3_WAVE_PATTERN_RAM_END => {
                 self.sample_generator.set_wave_ram(address, value);
