@@ -237,14 +237,14 @@ impl EnvelopeGenerator {
         self.initial_volume = ((value >> 4) & 0xF) as i8;
         self.volume_delta_dir = (value & 0x8) != 0;
         self.volume_sweep_pace = value & 0x7;
-        self.enable = ((value >> 3) & 0x1F) != 0;
+        self.enable = (value & 0xF8) != 0;
     }
 
     /// ボリューム・エンベロープの取得
     pub fn get_volume_envelope(&self) -> u8 {
         let mut ret = 0;
         ret |= (self.initial_volume as u8) << 4;
-        ret |= if self.volume_delta < 0 { 0 } else { 0x8 };
+        ret |= if self.volume_delta_dir { 0x8 } else { 0 };
         ret |= self.volume_sweep_pace;
         ret
     }
