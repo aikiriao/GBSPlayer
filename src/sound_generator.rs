@@ -338,14 +338,14 @@ impl PulseGenerator {
 
     /// 長さタイマー・デューティの設定
     pub fn set_length_timer_duty_cycle(&mut self, value: u8) {
-        (self.duty, self.pulse_table) = match (value >> 5) & 0x3 {
+        (self.duty, self.pulse_table) = match (value >> 6) & 0x3 {
             0 => (DutyRatio::Duty125, &PULSE_TABLE_DUTY125),
             1 => (DutyRatio::Duty250, &PULSE_TABLE_DUTY250),
             2 => (DutyRatio::Duty500, &PULSE_TABLE_DUTY500),
             3 => (DutyRatio::Duty750, &PULSE_TABLE_DUTY750),
             _ => unreachable!(),
         };
-        self.length_timer.set_length_timer(value & 0x1F, 64);
+        self.length_timer.set_length_timer(value & 0x3F, 64);
     }
 
     /// ボリューム・エンベロープ設定
@@ -680,7 +680,7 @@ impl NoiseGenerator {
 
     /// 長さタイマーの設定
     pub fn set_length_timer(&mut self, value: u8) {
-        self.length_timer.set_length_timer(value, 64);
+        self.length_timer.set_length_timer(value & 0x3F, 64);
     }
 
     /// ボリューム・エンベロープの設定
