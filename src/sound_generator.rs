@@ -41,8 +41,6 @@ pub struct LengthTimer {
     length_timer: u16,
     /// タイムアウトカウント
     timeout: u16,
-    /// タイムアウトカウント設定値
-    saved_timeout: u16,
     /// クロックカウント
     clock_count: u32,
     /// 更新クロック周期
@@ -178,26 +176,15 @@ impl LengthTimer {
             initial_length_timer: 0,
             length_timer: 0,
             timeout: 0,
-            saved_timeout: 0,
             clock_count: 0,
             update_period: clock_tick_hz / APU_SOUND_LENGTH_HZ,
         }
     }
 
-    /// 有効フラグの設定
-    pub fn set_enable(&mut self, flag: bool) {
-        self.enable = flag;
-    }
-
     /// 長さタイマーの設定
     pub fn set_length_timer(&mut self, initial_timer: u8, timeout: u16) {
         self.initial_length_timer = initial_timer;
-        self.saved_timeout = timeout;
-    }
-
-    /// 有効フラグの取得
-    pub fn get_enable(&self) -> bool {
-        self.enable
+        self.timeout = timeout;
     }
 
     /// 長さタイマーの設定
@@ -209,7 +196,6 @@ impl LengthTimer {
     pub fn process_trigger(&mut self) {
         self.length_timer = self.initial_length_timer as u16;
         self.expired = false;
-        self.timeout = self.saved_timeout;
         self.clock_count = 0;
     }
 
@@ -363,7 +349,7 @@ impl PulseGenerator {
     pub fn set_period_high_control(&mut self, value: u8) {
         self.period = (((value & 0x7) as u16) << 8) | (self.period & 0x00FF);
         self.period_changed = true;
-        self.length_timer.set_enable((value & 0x40) != 0);
+        self.length_timer.enable = (value & 0x40) != 0;
         self.trigger = (value & 0x80) != 0;
         if self.trigger {
             self.process_trigger();
@@ -409,7 +395,7 @@ impl PulseGenerator {
     pub fn get_period_high_control(&self) -> u8 {
         let mut ret = 0;
         ret |= ((self.period >> 8) & 0x7) as u8;
-        ret |= if self.length_timer.get_enable() {
+        ret |= if self.length_timer.enable {
             0x40
         } else {
             0
@@ -705,7 +691,7 @@ impl NoiseGenerator {
 
     /// 制御フラグ設定
     pub fn set_control(&mut self, value: u8) {
-        self.length_timer.set_enable((value & 0x40) != 0);
+        self.length_timer.enable = (value & 0x40) != 0;
         self.trigger = (value & 0x80) != 0;
         if self.trigger {
             self.process_trigger();
@@ -734,7 +720,7 @@ impl NoiseGenerator {
     /// 制御フラグ設定
     pub fn get_control(&self) -> u8 {
         let mut ret = 0;
-        ret |= if self.length_timer.get_enable() {
+        ret |= if self.length_timer.enable {
             0x40
         } else {
             0
