@@ -1371,7 +1371,7 @@ where
             SM83Oprand::R8ToA16 { dst, src } => {
                 let value = self.get_r8(src);
                 self.write_mem_u8(*dst as usize, value);
-                cycle = 3;
+                cycle = 4;
             }
             SM83Oprand::A16ToR8 { dst, src } => {
                 let value = self.read_mem_u8(*src as usize);
