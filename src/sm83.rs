@@ -1383,6 +1383,11 @@ where
                 self.write_mem_u16(*a16 as usize, value);
                 cycle = 5;
             }
+            SM83Oprand::R16ToR16 { dst, src } => {
+                let value = self.get_r16(src);
+                self.set_r16(dst, value);
+                cycle = 2;
+            }
             SM83Oprand::R16E8IndirectToR16 {
                 dst,
                 src_r16,
