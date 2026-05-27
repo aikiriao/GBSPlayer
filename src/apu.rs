@@ -262,7 +262,7 @@ impl APU {
             DMG_HPF_COEF_BASE.powf((DMG_MASTER_CLOCK_HZ as f32) / (sampling_rate as f32));
     }
 
-    /// 1MHzクロック単位処理
+    /// 2MHzクロック単位処理
     pub fn clock_tick_2mhz(&mut self, mem: &mut [u8]) {
         // クロック更新
         self.clock_count = self.clock_count.wrapping_add(1);
@@ -294,10 +294,14 @@ impl APU {
     }
 
     /// 4bitデジタル値を[-1,1]の範囲の浮動小数値に変換
-    fn dac(input: u8) -> f32 {
-        // NOTE: 0は1, 0xFは-1にマッピングされる
-        const INV7_5: f32 = 1.0 / 7.5;
-        -(input as f32) * INV7_5 + 1.0
+    fn dac(enable: bool, input: u8) -> f32 {
+        if enable {
+            // NOTE: 0は1, 0xFは-1にマッピングされる
+            const INV7_5: f32 = 1.0 / 7.5;
+            -(input as f32) * INV7_5 + 1.0
+        } else {
+            0.0
+        }
     }
 
     /// HPFの適用
@@ -322,10 +326,22 @@ impl APU {
         ];
         // 4ch分の信号を読み取り・浮動小数化
         let ch_out = [
-            Self::dac((mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] >> 0) & 0xF),
-            Self::dac((mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] >> 4) & 0xF),
-            Self::dac((mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] >> 0) & 0xF),
-            Self::dac((mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] >> 4) & 0xF),
+            Self::dac(
+                self.pulse_generator[0].dac_enable,
+                (mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] >> 0) & 0xF,
+            ),
+            Self::dac(
+                self.pulse_generator[1].dac_enable,
+                (mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] >> 4) & 0xF,
+            ),
+            Self::dac(
+                self.sample_generator.dac_enable,
+                (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] >> 0) & 0xF,
+            ),
+            Self::dac(
+                self.noise_generator.dac_enable,
+                (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] >> 4) & 0xF,
+            ),
         ];
         // パン適用しつつステレオにミックス
         for ch in 0..4 {

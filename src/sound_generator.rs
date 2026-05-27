@@ -50,8 +50,6 @@ pub struct LengthTimer {
 /// エンベロープ（ボリューム）ジェネレータ
 #[derive(Debug)]
 pub struct EnvelopeGenerator {
-    /// エンベロープ有効か
-    pub enable: bool,
     /// ボリューム現在値（更新を簡易にするために符号付き）
     volume: i8,
     /// ボリューム更新方向（false: 負、true: 正）
@@ -75,6 +73,8 @@ pub struct EnvelopeGenerator {
 pub struct PulseGenerator {
     /// 有効か？
     pub enable: bool,
+    /// DAC有効か
+    pub dac_enable: bool,
     /// 周期変更頻度
     period_sweep_pace: u8,
     /// 周期変更方向
@@ -115,7 +115,7 @@ pub struct SampleGenerator {
     /// 有効か？
     pub enable: bool,
     /// DAC有効か
-    dac_enable: bool,
+    pub dac_enable: bool,
     /// 出力レベル右シフト量
     output_level_shift: u8,
     /// 周期
@@ -143,6 +143,8 @@ pub struct SampleGenerator {
 pub struct NoiseGenerator {
     /// 有効か？
     pub enable: bool,
+    /// DAC有効か
+    pub dac_enable: bool,
     /// 再生要求フラグ
     trigger: bool,
     /// LFSR更新クロックの右シフト量
@@ -220,7 +222,6 @@ impl EnvelopeGenerator {
         assert!(clock_tick_hz % APU_ENVELOPE_SWEEP_HZ == 0);
 
         Self {
-            enable: false,
             volume: 0,
             volume_delta_dir: false,
             volume_delta: 0,
@@ -237,7 +238,6 @@ impl EnvelopeGenerator {
         self.initial_volume = ((value >> 4) & 0xF) as i8;
         self.volume_delta_dir = (value & 0x8) != 0;
         self.volume_sweep_pace = value & 0x7;
-        self.enable = (value & 0xF8) != 0;
     }
 
     /// ボリューム・エンベロープの取得
@@ -245,7 +245,7 @@ impl EnvelopeGenerator {
         let mut ret = 0;
         ret |= (self.initial_volume as u8) << 4;
         ret |= if self.volume_delta_dir { 0x8 } else { 0 };
-        ret |= self.volume_sweep_pace;
+        ret |= self.volume_sweep_pace & 0x7;
         ret
     }
 
@@ -268,7 +268,7 @@ impl EnvelopeGenerator {
 
     /// クロック単位処理
     pub fn clock_tick(&mut self) {
-        if self.enable && (self.volume_update_period > 0) {
+        if self.volume_update_period > 0 {
             self.clock_count += 1;
             if self.clock_count >= self.volume_update_period {
                 self.volume += self.volume_delta;
@@ -284,6 +284,7 @@ impl PulseGenerator {
     pub fn new() -> Self {
         Self {
             enable: false,
+            dac_enable: false,
             period_sweep_pace: 0,
             period_sweep_direction: SweepDirection::Positive,
             period_sweep_step: 0,
@@ -337,6 +338,10 @@ impl PulseGenerator {
     /// ボリューム・エンベロープ設定
     pub fn set_volume_envelope(&mut self, value: u8) {
         self.eg.set_volume_envelope(value);
+        self.dac_enable = (value & 0xF8) != 0;
+        if !self.dac_enable {
+            self.enable = false;
+        }
     }
 
     /// 周期下位ビット設定
@@ -395,11 +400,7 @@ impl PulseGenerator {
     pub fn get_period_high_control(&self) -> u8 {
         let mut ret = 0;
         ret |= ((self.period >> 8) & 0x7) as u8;
-        ret |= if self.length_timer.enable {
-            0x40
-        } else {
-            0
-        };
+        ret |= if self.length_timer.enable { 0x40 } else { 0 };
         ret |= if self.trigger { 0x80 } else { 0 };
         ret
     }
@@ -469,8 +470,8 @@ impl PulseGenerator {
             // 長さタイマーの更新
             self.length_timer.clock_tick();
 
-            // 長さタイマーが時間切れしていたりエンベロープジェネレータが停止していたら止める
-            if self.length_timer.expired || !self.eg.enable {
+            // 長さタイマーが時間切れしていたら止める
+            if self.length_timer.expired {
                 self.enable = false;
             }
         }
@@ -519,7 +520,7 @@ impl SampleGenerator {
             2 => 1,
             3 => 2,
             _ => unreachable!(),
-        }
+        };
     }
 
     /// 周期下位ビット設定
@@ -651,6 +652,7 @@ impl NoiseGenerator {
     pub fn new() -> Self {
         Self {
             enable: false,
+            dac_enable: false,
             trigger: false,
             clock_shift: 0,
             clock_divider: 0,
@@ -672,6 +674,10 @@ impl NoiseGenerator {
     /// ボリューム・エンベロープの設定
     pub fn set_volume_envelope(&mut self, value: u8) {
         self.eg.set_volume_envelope(value);
+        self.dac_enable = (value & 0xF8) != 0;
+        if !self.dac_enable {
+            self.enable = false;
+        }
     }
 
     /// 更新頻度・ランダムネスの設定
@@ -720,11 +726,7 @@ impl NoiseGenerator {
     /// 制御フラグ設定
     pub fn get_control(&self) -> u8 {
         let mut ret = 0;
-        ret |= if self.length_timer.enable {
-            0x40
-        } else {
-            0
-        };
+        ret |= if self.length_timer.enable { 0x40 } else { 0 };
         ret |= if self.trigger { 0x80 } else { 0 };
         ret
     }
