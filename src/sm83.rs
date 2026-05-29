@@ -58,9 +58,9 @@ pub const BANK2_START_ADDRESS: usize = 0x4000;
 pub const MODE_START_ADDRESS: usize = 0x6000;
 
 /// SM83エミュレータ
-pub struct SM83<R> 
-where 
-    R: AsRef<[u8]>
+pub struct SM83<R>
+where
+    R: AsRef<[u8]>,
 {
     /// レジスタ
     pub regs: SM83Registers,
@@ -92,9 +92,9 @@ where
     vblank_mcycle_count: f32,
 }
 
-impl<R> SM83<R> 
-where 
-    R: AsRef<[u8]>
+impl<R> SM83<R>
+where
+    R: AsRef<[u8]>,
 {
     /// コンストラクタ
     pub fn new(rom: R) -> Self {
@@ -496,8 +496,8 @@ where
                 fn sbc(a: u8, b: u8, carry: bool) -> (u8, bool, bool) {
                     let a16 = a as u16;
                     let b16 = b as u16;
-                    let nc = if carry { 0 } else { 1 };
-                    let ret = a16.wrapping_sub(b16).wrapping_sub(nc);
+                    let c = if carry { 1 } else { 0 };
+                    let ret = a16.wrapping_sub(b16).wrapping_sub(c);
                     (
                         (ret & 0xFF) as u8,
                         ret < 0x100,
