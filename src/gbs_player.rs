@@ -118,6 +118,11 @@ where
             }
             // 割り込み処理
             if self.check_play_interrupt() {
+                // スタックポインタが進みすぎていたら初期値に戻す
+                // （割り込みのたびにスタックポインタが進んでいる場合、放置するとメモリ破壊が起きる）
+                if self.cpu.regs.sp > self.gbs_header.stack_pointer {
+                    self.cpu.regs.sp = self.gbs_header.stack_pointer;
+                }
                 // 再生ルーチンのアドレスをCALL
                 self.push_stack(((GBSPLAYER_INIT_PLAY_RETURN_ADDRESS >> 8) & 0xFF) as u8);
                 self.push_stack(((GBSPLAYER_INIT_PLAY_RETURN_ADDRESS >> 0) & 0xFF) as u8);
