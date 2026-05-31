@@ -199,6 +199,16 @@ where
         self.mem[WRAM_BANK1_START_ADDRESS..(WRAM_BANK1_START_ADDRESS + 0x1000)].fill(0);
     }
 
+    /// タイマー関係の状態をリセット
+    pub fn reset_timers(&mut self) {
+        self.timer_tick_mcycle_count = 0;
+        self.div_mcycle_count = 0;
+        self.vblank_mcycle_count = 0.0;
+        self.mem[HWREG_DIV_REGISTER] = 0;
+        self.mem[HWREG_IF_INTERRUPT_FLAG] &=
+            !(SM83_INTERRUPT_FLAG_TIMER | SM83_INTERRUPT_FLAG_VBLANK);
+    }
+
     /// ROMバンクの切り替え(MBC1)
     fn switch_rom_bank_mbc1(&mut self) {
         let bank_number = (self.mbc1_bank2 << 5) | (self.mbc1_bank1);

@@ -111,8 +111,8 @@ where
         while self.cpu.regs.pc != GBSPLAYER_INIT_PLAY_RETURN_ADDRESS {
             let _ = self.cpu.execute_step();
         }
-        // ここから時刻0で再生開始したいため、割り込みフラグをクリア
-        self.clear_play_interrupt_flag();
+        // ここから時刻0で再生開始したいため、タイマーをリセット
+        self.cpu.reset_timers();
     }
 
     /// 1ステレオサンプル出力
