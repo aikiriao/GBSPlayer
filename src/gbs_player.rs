@@ -51,6 +51,33 @@ where
         self.cpu.write_mem_u8(self.cpu.regs.sp as usize, value);
     }
 
+    /// playルーチンの割り込みが発生しているか判定
+    fn check_play_interrupt(&self) -> bool {
+        // 判定用フラグの取得
+        let flag = if (self.cpu.mem[HWREG_TAC_TIMER_CONTROL] & 0x4) == 0 {
+            // タイマー割り込み無効ならV-blank割り込みを使用
+            SM83_INTERRUPT_FLAG_VBLANK
+        } else {
+            SM83_INTERRUPT_FLAG_TIMER
+        };
+
+        (self.cpu.mem[HWREG_IF_INTERRUPT_FLAG] & flag) != 0
+    }
+
+    /// playルーチンの割り込みフラグをクリア
+    fn clear_play_interrupt_flag(&mut self) {
+        // 判定用フラグの取得
+        let flag = if (self.cpu.mem[HWREG_TAC_TIMER_CONTROL] & 0x4) == 0 {
+            // タイマー割り込み無効ならV-blank割り込みを使用
+            SM83_INTERRUPT_FLAG_VBLANK
+        } else {
+            SM83_INTERRUPT_FLAG_TIMER
+        };
+
+        // 割り込みフラグクリア
+        self.cpu.mem[HWREG_IF_INTERRUPT_FLAG] &= !flag;
+    }
+
     /// 初期化
     pub fn init(&mut self, song_number: u8) {
         // レジスタ・フラグ・RAMのクリア
@@ -84,23 +111,8 @@ where
         while self.cpu.regs.pc != GBSPLAYER_INIT_PLAY_RETURN_ADDRESS {
             let _ = self.cpu.execute_step();
         }
-    }
-
-    /// playルーチンの割り込みが発生しているか判定
-    fn check_play_interrupt(&mut self) -> bool {
-        // 判定用フラグの取得
-        let flag = if (self.cpu.mem[HWREG_TAC_TIMER_CONTROL] & 0x4) == 0 {
-            // タイマー割り込み無効ならV-blank割り込みを使用
-            SM83_INTERRUPT_FLAG_VBLANK
-        } else {
-            SM83_INTERRUPT_FLAG_TIMER
-        };
-
-        // 割り込み判定・フラグクリア
-        let ret = (self.cpu.mem[HWREG_IF_INTERRUPT_FLAG] & flag) != 0;
-        self.cpu.mem[HWREG_IF_INTERRUPT_FLAG] &= !flag;
-
-        ret
+        // ここから時刻0で再生開始したいため、割り込みフラグをクリア
+        self.clear_play_interrupt_flag();
     }
 
     /// 1ステレオサンプル出力
@@ -118,6 +130,8 @@ where
             }
             // 割り込み処理
             if self.check_play_interrupt() {
+                // 割り込みフラグをクリア
+                self.clear_play_interrupt_flag();
                 // スタックポインタが進みすぎていたら初期値に戻す
                 // （割り込みのたびにスタックポインタが進んでいる場合、放置するとメモリ破壊が起きる）
                 if self.cpu.regs.sp > self.gbs_header.stack_pointer {
