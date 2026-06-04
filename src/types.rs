@@ -16,6 +16,29 @@ pub const APU_SOUND_LENGTH_HZ: u32 = 256;
 /// CH1周波数スイープの更新頻度(Hz)
 pub const APU_FREQUENCY_SWEEP_HZ: u32 = 128;
 
+// アドレス
+/// Bank0 ROM開始アドレス
+pub const ROM_BANK0_START_ADDRESS: usize = 0x0000;
+/// Bank1 ROM開始アドレス
+pub const ROM_BANK1_START_ADDRESS: usize = 0x4000;
+/// VRAM開始アドレス
+pub const VRAM_START_ADDRESS: usize = 0x8000;
+/// 外部RAM開始アドレス
+pub const EXTERNAL_RAM_START_ADDRESS: usize = 0xA000;
+/// Work RAM
+pub const WRAM_BANK0_START_ADDRESS: usize = 0xC000;
+/// Work RAM Bank 1-7
+pub const WRAM_BANK1_START_ADDRESS: usize = 0xD000;
+/// Echo RAM
+pub const ECHO_RAM_START_ADDRESS: usize = 0xE000;
+/// Object Attribute Memory (OAM)
+pub const OAM_START_ADDRESS: usize = 0xFE00;
+pub const NOT_USABLE_START_ADDRESS: usize = 0xFEA0;
+/// ハードウェアレジスタの開始アドレス
+pub const HWREG_START_ADDRESS: usize = 0xFF00;
+/// High RAM (HRAM)
+pub const HRAM_START_ADDRESS: usize = 0xFF80;
+
 // ハードウェアレジスタアドレス
 /// ジョイパッド
 pub const HWREG_P1_JOYPAD: usize = 0xFF00;
@@ -219,35 +242,117 @@ pub enum SM83ConditionCode {
 /// SM83オペランド
 #[derive(Debug)]
 pub enum SM83Oprand {
-    N16ToR16 { dst: SM83Register16, n16: u16 },
-    R16ToA16 { a16: u16, src: SM83Register16 },
-    R16 { r16: SM83Register16 },
-    R8 { r8: SM83Register8 },
-    R16Indirect { r16: SM83Register16 },
-    N8ToR8 { dst: SM83Register8, n8: u8 },
-    N8ToR8Indirect { dst: SM83Register8, n8: u8 },
-    N8ToR16Indirect { dst: SM83Register16, n8: u8 },
-    R16ToR16 { dst: SM83Register16, src: SM83Register16 },
-    R8ToR8 { dst: SM83Register8, src: SM83Register8 },
-    R16IndirectToR8 { dst: SM83Register8, src: SM83Register16 },
-    R8ToR16Indirect { dst: SM83Register16, src: SM83Register8 },
-    E8 { e8: i8 },
-    CCAndE8 { cc: SM83ConditionCode, e8: i8 },
-    R8AndR8 { r1: SM83Register8, r2: SM83Register8 },
-    R8AndR16Indirect { r8: SM83Register8, r16: SM83Register16 },
-    CC { cc: SM83ConditionCode },
-    CCAndA16 { cc: SM83ConditionCode, a16: u16 },
-    A16 { a16: u16 },
-    R8AndN8 { r8: SM83Register8, n8: u8 },
-    R8ToA8 { dst: u8, src: SM83Register8 },
-    R8ToR8Indirect { dst: SM83Register8, src: SM83Register8 },
-    R16AndR16 { r1: SM83Register16, r2: SM83Register16 },
-    R16AndE8 { r16: SM83Register16, e8: i8 },
-    R8ToA16 { dst: u16, src: SM83Register8 },
-    A8ToR8 { dst: SM83Register8, src: u8 },
-    R8IndirectToR8 { dst: SM83Register8, src: SM83Register8 },
-    R16E8IndirectToR16 { dst: SM83Register16, src_r16: SM83Register16, src_e8: i8 },
-    A16ToR8 { dst: SM83Register8, src: u16 },
+    N16ToR16 {
+        dst: SM83Register16,
+        n16: u16,
+    },
+    R16ToA16 {
+        a16: u16,
+        src: SM83Register16,
+    },
+    R16 {
+        r16: SM83Register16,
+    },
+    R8 {
+        r8: SM83Register8,
+    },
+    R16Indirect {
+        r16: SM83Register16,
+    },
+    N8ToR8 {
+        dst: SM83Register8,
+        n8: u8,
+    },
+    N8ToR8Indirect {
+        dst: SM83Register8,
+        n8: u8,
+    },
+    N8ToR16Indirect {
+        dst: SM83Register16,
+        n8: u8,
+    },
+    R16ToR16 {
+        dst: SM83Register16,
+        src: SM83Register16,
+    },
+    R8ToR8 {
+        dst: SM83Register8,
+        src: SM83Register8,
+    },
+    R16IndirectToR8 {
+        dst: SM83Register8,
+        src: SM83Register16,
+    },
+    R8ToR16Indirect {
+        dst: SM83Register16,
+        src: SM83Register8,
+    },
+    E8 {
+        e8: i8,
+    },
+    CCAndE8 {
+        cc: SM83ConditionCode,
+        e8: i8,
+    },
+    R8AndR8 {
+        r1: SM83Register8,
+        r2: SM83Register8,
+    },
+    R8AndR16Indirect {
+        r8: SM83Register8,
+        r16: SM83Register16,
+    },
+    CC {
+        cc: SM83ConditionCode,
+    },
+    CCAndA16 {
+        cc: SM83ConditionCode,
+        a16: u16,
+    },
+    A16 {
+        a16: u16,
+    },
+    R8AndN8 {
+        r8: SM83Register8,
+        n8: u8,
+    },
+    R8ToA8 {
+        dst: u8,
+        src: SM83Register8,
+    },
+    R8ToR8Indirect {
+        dst: SM83Register8,
+        src: SM83Register8,
+    },
+    R16AndR16 {
+        r1: SM83Register16,
+        r2: SM83Register16,
+    },
+    R16AndE8 {
+        r16: SM83Register16,
+        e8: i8,
+    },
+    R8ToA16 {
+        dst: u16,
+        src: SM83Register8,
+    },
+    A8ToR8 {
+        dst: SM83Register8,
+        src: u8,
+    },
+    R8IndirectToR8 {
+        dst: SM83Register8,
+        src: SM83Register8,
+    },
+    R16E8IndirectToR16 {
+        dst: SM83Register16,
+        src_r16: SM83Register16,
+        src_e8: i8,
+    },
+    A16ToR8 {
+        dst: SM83Register8,
+        src: u16,
+    },
 }
 
 /// SM83オペコード

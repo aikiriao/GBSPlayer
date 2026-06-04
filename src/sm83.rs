@@ -17,24 +17,6 @@ const FLAG_H: u8 = 1 << 5;
 /// キャリーフラグ
 const FLAG_C: u8 = 1 << 4;
 
-const ROM_BANK0_START_ADDRESS: usize = 0x0000;
-const ROM_BANK1_START_ADDRESS: usize = 0x4000;
-const VRAM_START_ADDRESS: usize = 0x8000;
-const EXTERNAL_RAM_START_ADDRESS: usize = 0xA000;
-/// Work RAM
-const WRAM_BANK0_START_ADDRESS: usize = 0xC000;
-/// Work RAM Bank 1-7
-const WRAM_BANK1_START_ADDRESS: usize = 0xD000;
-///
-const ECHO_RAM_START_ADDRESS: usize = 0xE000;
-/// Object Attribute Memory (OAM)
-const OAM_START_ADDRESS: usize = 0xFE00;
-const NOT_USABLE_START_ADDRESS: usize = 0xFEA0;
-/// ハードウェアレジスタの開始アドレス
-const HWREG_START_ADDRESS: usize = 0xFF00;
-/// High RAM (HRAM)
-const HRAM_START_ADDRESS: usize = 0xFF80;
-
 // 割り込み要求・有効フラグ
 /// ジョイパッド割り込み
 pub const SM83_INTERRUPT_FLAG_JOYPAD: u8 = 1 << 4;

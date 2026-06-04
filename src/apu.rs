@@ -1,6 +1,5 @@
 use crate::sound_generator::*;
 use crate::types::*;
-use log::{trace, warn};
 
 /// 波形RAM領域終端アドレス
 const HWREG_CHANNEL3_WAVE_PATTERN_RAM_END: usize = HWREG_CHANNEL3_WAVE_PATTERN_RAM_START + 16;
