@@ -516,8 +516,8 @@ where
                     let ret = a16.wrapping_sub(b16).wrapping_sub(c);
                     (
                         (ret & 0xFF) as u8,
-                        ret < 0x100,
-                        (a16 ^ b16 ^ ret) & 0x10 == 0,
+                        (b16 + c) > a16,
+                        (a16 ^ b16 ^ ret) & 0x10 != 0,
                     )
                 }
                 let cycle = self.execute_sub_adc_sbc(oprand, sbc);
