@@ -499,7 +499,7 @@ where
                     (
                         (ret & 0xFF) as u8,
                         (b16 + c) > a16,
-                        (a16 ^ b16 ^ ret) & 0x10 != 0,
+                        ((b16 & 0x0F) + c) > (a16 & 0x0F)
                     )
                 }
                 let cycle = self.execute_sub_adc_sbc(oprand, sbc);
