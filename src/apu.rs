@@ -258,8 +258,9 @@ impl APU {
     /// 出力サンプリングレートの設定
     pub fn set_sampling_rate(&mut self, sampling_rate: u32) {
         // HPFの係数を再計算
-        self.hpf_coef =
-            DMG_HPF_COEF_BASE.powf((DMG_MASTER_CLOCK_HZ as f32) / (sampling_rate as f32));
+        self.hpf_coef = (DMG_HPF_COEF_BASE as f64)
+            .powf((DMG_MASTER_CLOCK_HZ as f64) / (sampling_rate as f64))
+            as f32;
     }
 
     /// 2MHzクロック単位処理
