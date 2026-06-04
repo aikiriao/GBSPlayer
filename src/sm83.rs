@@ -78,6 +78,8 @@ where
     mbc1_bank2: u8,
     /// MBC1モードレジスタ
     mbc1_mode: u8,
+    /// MBC1のバンクマスク
+    mbc1_bank_mask: u8,
     /// IME（割り込み有効）フラグ
     ime_flag: bool,
     /// タイマー(TIMA)有効か？
@@ -98,11 +100,14 @@ where
 {
     /// コンストラクタ
     pub fn new(rom: R) -> Self {
-        // ROMはBANK0のサイズ(0x4000)以上かつバンクのサイズ0x4000の倍数であることを要求
-        // ROMの先頭0x4000バイトはBANK0に置かれる
+        // ROMはBANK0のサイズ(0x4000)以上かつバンクのサイズの倍数であることを要求
+        // ROMの先頭バイトはBANK0に置かれる
         // ROMを配置する側が適切にサイズ調整し、残った領域は0埋めする
-        debug_assert!(rom.as_ref().len() >= 0x4000);
-        debug_assert!((rom.as_ref().len() % 0x4000) == 0);
+        debug_assert!(rom.as_ref().len() >= DMG_ROM_BANK_SIZE);
+        debug_assert!((rom.as_ref().len() % DMG_ROM_BANK_SIZE) == 0);
+        // バンク数のマスクを作成
+        let num_rom_banks = rom.as_ref().len() / DMG_ROM_BANK_SIZE;
+        let bank_mask = (1 << ((num_rom_banks - 1).ilog2() + 1)) - 1;
         Self {
             regs: SM83Registers {
                 a: 0,
@@ -122,6 +127,7 @@ where
             mbc1_bank1: 1,
             mbc1_bank2: 0,
             mbc1_mode: 0,
+            mbc1_bank_mask: bank_mask,
             rom: rom,
             ime_flag: false,
             timer_enable: false,
@@ -211,7 +217,7 @@ where
 
     /// ROMバンクの切り替え(MBC1)
     fn switch_rom_bank_mbc1(&mut self) {
-        let bank_number = (self.mbc1_bank2 << 5) | (self.mbc1_bank1);
+        let bank_number = ((self.mbc1_bank2 << 5) | (self.mbc1_bank1)) & self.mbc1_bank_mask;
         let offset = (bank_number as usize) * DMG_ROM_BANK_SIZE;
         self.mem[ROM_BANK1_START_ADDRESS..(ROM_BANK1_START_ADDRESS + DMG_ROM_BANK_SIZE)]
             .copy_from_slice(&self.rom.as_ref()[offset..(offset + DMG_ROM_BANK_SIZE)]);
