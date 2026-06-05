@@ -1,12 +1,12 @@
 // ハードウェア仕様
-/// VBlank（垂直同期）間隔(Hz)
-pub const DMG_VBLANK_PERIOD_HZ: f32 = 59.73;
 /// ゲームボーイのマスタークロック(Hz)
 pub const DMG_MASTER_CLOCK_HZ: u32 = 4194304;
 /// ゲームボーイのシステムクロック(Hz)
 pub const DMG_SYSTEM_CLOCK_HZ: u32 = DMG_MASTER_CLOCK_HZ / 4;
 /// ROMの単一バンクサイズ
 pub const DMG_ROM_BANK_SIZE: usize = 0x4000;
+/// VBlank（垂直同期）間隔(Hz) 1フレーム当たり70224サイクルであることから導出
+pub const DMG_VBLANK_PERIOD_HZ: f32 = (DMG_MASTER_CLOCK_HZ as f32) / 70224.0;
 
 // オーディオ仕様
 /// エンベロープスイープの更新頻度(Hz)
