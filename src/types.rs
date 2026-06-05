@@ -5,8 +5,10 @@ pub const DMG_MASTER_CLOCK_HZ: u32 = 4194304;
 pub const DMG_SYSTEM_CLOCK_HZ: u32 = DMG_MASTER_CLOCK_HZ / 4;
 /// ROMの単一バンクサイズ
 pub const DMG_ROM_BANK_SIZE: usize = 0x4000;
+/// VBlankあたりのマスタークロック数（PPUの1ライン456cycles x 1フレーム154ラインから）
+pub const MASTER_CLOCKS_PER_VBLANK: u32 = 70224;
 /// VBlank（垂直同期）間隔(Hz) 1フレーム当たり70224サイクルであることから導出
-pub const DMG_VBLANK_PERIOD_HZ: f32 = (DMG_MASTER_CLOCK_HZ as f32) / 70224.0;
+pub const DMG_VBLANK_PERIOD_HZ: f32 = (DMG_MASTER_CLOCK_HZ as f32) / (MASTER_CLOCKS_PER_VBLANK as f32);
 
 // オーディオ仕様
 /// エンベロープスイープの更新頻度(Hz)

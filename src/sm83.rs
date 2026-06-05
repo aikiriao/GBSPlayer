@@ -4,7 +4,7 @@ use crate::types::*;
 use log::{trace, warn};
 
 /// VBlankあたりのシステムクロック数
-const SYSTEM_CLOCKS_PER_VBLANK: f32 = (DMG_SYSTEM_CLOCK_HZ as f32) / DMG_VBLANK_PERIOD_HZ;
+const SYSTEM_CLOCKS_PER_VBLANK: u32 = MASTER_CLOCKS_PER_VBLANK / 4;
 /// DIVレジスタがカウントアップするシステムクロック数
 const DIVIDER_RATE_STSTEM_CLOCKS: u32 = 64;
 
@@ -73,7 +73,7 @@ where
     /// DIVレジスタ用カウント (M-cycle)
     div_mcycle_count: u32,
     /// VBlank用カウント (M-cycle)
-    vblank_mcycle_count: f32,
+    vblank_mcycle_count: u32,
 }
 
 impl<R> SM83<R>
@@ -116,7 +116,7 @@ where
             timer_increment_mcycle: 256, // Clock select = 00 に相当
             timer_tick_mcycle_count: 0,
             div_mcycle_count: 0,
-            vblank_mcycle_count: 0.0,
+            vblank_mcycle_count: 0,
         }
     }
 
@@ -191,7 +191,7 @@ where
     pub fn reset_timers(&mut self) {
         self.timer_tick_mcycle_count = 0;
         self.div_mcycle_count = 0;
-        self.vblank_mcycle_count = 0.0;
+        self.vblank_mcycle_count = 0;
         self.mem[HWREG_DIV_REGISTER] = 0;
         self.mem[HWREG_IF_INTERRUPT_FLAG] &=
             !(SM83_INTERRUPT_FLAG_TIMER | SM83_INTERRUPT_FLAG_VBLANK);
@@ -362,7 +362,7 @@ where
         }
 
         // VBLANK
-        self.vblank_mcycle_count += 1.0;
+        self.vblank_mcycle_count += 1;
         if self.vblank_mcycle_count >= SYSTEM_CLOCKS_PER_VBLANK {
             // VBLANK割り込み要求フラグを立てる
             self.mem[HWREG_IF_INTERRUPT_FLAG] |= SM83_INTERRUPT_FLAG_VBLANK;
