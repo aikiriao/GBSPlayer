@@ -86,7 +86,6 @@ where
         self.cpu.clear_ram();
 
         // アキュムレータに曲番号
-        assert!(song_number >= (self.gbs_header.first_song - 1));
         assert!(song_number < self.gbs_header.num_songs);
         self.cpu.regs.a = song_number;
         // スタックポインタ初期化
