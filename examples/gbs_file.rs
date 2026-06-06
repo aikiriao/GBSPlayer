@@ -1,4 +1,4 @@
-use crate::types::*;
+use sm83::types::*;
 
 /// GBSファイルヘッダ
 #[derive(Debug, Clone)]

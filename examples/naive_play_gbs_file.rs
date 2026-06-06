@@ -1,6 +1,9 @@
+mod gbs_file;
+mod gbs_player;
+
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use sm83::gbs_file::*;
-use sm83::gbs_player::*;
+use gbs_file::*;
+use gbs_player::*;
 use sm83::types::*;
 use std::env;
 use std::fmt::Error;

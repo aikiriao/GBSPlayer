@@ -1,6 +1,6 @@
 use crate::gbs_file::*;
-use crate::sm83::*;
-use crate::types::*;
+use sm83::sm83::*;
+use sm83::types::*;
 
 /// init/playの戻り先アドレス
 const GBSPLAYER_INIT_PLAY_RETURN_ADDRESS: u16 = 0x0000;
