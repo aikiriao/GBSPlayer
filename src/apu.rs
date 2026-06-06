@@ -6,6 +6,7 @@ const HWREG_CHANNEL3_WAVE_PATTERN_RAM_END: usize = HWREG_CHANNEL3_WAVE_PATTERN_R
 /// ゲームボーイのHPFの係数基準値
 const DMG_HPF_COEF_BASE: f32 = 0.999958;
 /// ゲームボーイカラーのHPFの係数基準値
+#[allow(dead_code)]
 const CGB_HPF_COEF_BASE: f32 = 0.998943;
 
 /// パンニング

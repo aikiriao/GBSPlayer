@@ -1,6 +1,7 @@
 use sm83::types::*;
 
 /// GBSファイルヘッダ
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct GBSFileHeader {
     /// バージョン
