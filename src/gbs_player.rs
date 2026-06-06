@@ -3,8 +3,7 @@ use crate::sm83::*;
 use crate::types::*;
 
 /// init/playの戻り先アドレス
-/// 割り込みベクタを避けて0x0100とする
-const GBSPLAYER_INIT_PLAY_RETURN_ADDRESS: u16 = 0x0100;
+const GBSPLAYER_INIT_PLAY_RETURN_ADDRESS: u16 = 0x0000;
 
 pub struct GBSPlayer<R>
 where
@@ -124,6 +123,7 @@ where
             // 待機処理でplay/initアドレスに来てしまったら戻す
             if self.cpu.regs.pc == self.gbs_header.play_address
                 || self.cpu.regs.pc == self.gbs_header.init_address
+                || self.cpu.regs.pc == self.gbs_header.load_address
             {
                 self.cpu.regs.pc = GBSPLAYER_INIT_PLAY_RETURN_ADDRESS;
             }
