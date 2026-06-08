@@ -1,5 +1,4 @@
 use sm83::gbs_file::*;
-use sm83::types::*;
 use std::env;
 use std::fmt::Error;
 
@@ -47,8 +46,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .unwrap()
                 .trim_end_matches('\0'),
         );
-
-        let rom: Box<[u8]> = Box::from(&data[0x70..]);
     }
 
     Ok(())

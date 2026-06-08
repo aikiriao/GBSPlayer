@@ -1,4 +1,4 @@
-use sm83::types::*;
+use crate::types::*;
 
 /// GBSファイルヘッダ
 #[allow(dead_code)]
