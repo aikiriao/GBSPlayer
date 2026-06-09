@@ -462,6 +462,19 @@ pub enum SweepDirection {
     Negative,
 }
 
+/// デューティ比
+#[derive(Debug, Clone, Copy)]
+pub enum DutyRatio {
+    /// 12.5%
+    Duty125,
+    /// 25%
+    Duty250,
+    /// 50%
+    Duty500,
+    /// 75%
+    Duty750,
+}
+
 /// メモリ上にあるデータから16bitデータを読みだす
 pub fn make_u16_from_u8(data: &[u8]) -> u16 {
     assert_eq!(data.len(), 2);
