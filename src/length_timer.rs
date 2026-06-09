@@ -4,9 +4,9 @@ use crate::types::*;
 #[derive(Debug)]
 pub struct LengthTimer {
     /// 有効か
-    pub enable: bool,
+    enable: bool,
     /// タイマー時間切れか？
-    pub expired: bool,
+    expired: bool,
     /// 持続時間
     initial_length_timer: u8,
     /// タイマーカウント
@@ -33,6 +33,21 @@ impl LengthTimer {
             clock_count: 0,
             update_period: clock_tick_hz / APU_SOUND_LENGTH_HZ,
         }
+    }
+
+    /// タイマーが切れているか判定
+    pub fn get_expired(&self) -> bool {
+        self.expired
+    }
+
+    /// 有効フラグの設定
+    pub fn set_enable(&mut self, flag: bool) {
+        self.enable = flag;
+    }
+
+    /// 有効フラグの取得
+    pub fn get_enable(&self) -> bool {
+        self.enable
     }
 
     /// 長さタイマーの設定

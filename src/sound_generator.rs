@@ -191,7 +191,7 @@ impl PulseGenerator {
     pub fn set_period_high_control(&mut self, value: u8) {
         self.period = (((value & 0x7) as u16) << 8) | (self.period & 0x00FF);
         self.period_changed = true;
-        self.length_timer.enable = (value & 0x40) != 0;
+        self.length_timer.set_enable((value & 0x40) != 0);
         self.trigger = (value & 0x80) != 0;
         if self.trigger {
             self.process_trigger();
@@ -237,7 +237,7 @@ impl PulseGenerator {
     pub fn get_period_high_control(&self) -> u8 {
         let mut ret = 0;
         ret |= ((self.period >> 8) & 0x7) as u8;
-        ret |= if self.length_timer.enable { 0x40 } else { 0 };
+        ret |= if self.length_timer.get_enable() { 0x40 } else { 0 };
         ret |= if self.trigger { 0x80 } else { 0 };
         ret
     }
@@ -247,7 +247,7 @@ impl PulseGenerator {
         // チャンネルを有効に
         self.enable = true;
         // 長さタイマーが切れていたら再度トリガー処理
-        if self.length_timer.expired {
+        if self.length_timer.get_expired() {
             self.length_timer.process_trigger();
         }
         // 周期の設定
@@ -308,7 +308,7 @@ impl PulseGenerator {
             self.length_timer.clock_tick();
 
             // 長さタイマーが時間切れしていたら止める
-            if self.length_timer.expired {
+            if self.length_timer.get_expired() {
                 self.enable = false;
             }
         }
@@ -442,7 +442,7 @@ impl SampleGenerator {
         // チャンネルを有効に
         self.enable = true;
         // 長さタイマーが切れていたら再度トリガー処理
-        if self.length_timer.expired {
+        if self.length_timer.get_expired() {
             self.length_timer.process_trigger();
         }
         // 更新周期の設定
@@ -475,7 +475,7 @@ impl SampleGenerator {
             self.length_timer.clock_tick();
 
             // 長さタイマーが時間切れしていたら無効に
-            if self.length_timer.expired {
+            if self.length_timer.get_expired() {
                 self.enable = false;
             }
         }
@@ -534,7 +534,7 @@ impl NoiseGenerator {
 
     /// 制御フラグ設定
     pub fn set_control(&mut self, value: u8) {
-        self.length_timer.enable = (value & 0x40) != 0;
+        self.length_timer.set_enable((value & 0x40) != 0);
         self.trigger = (value & 0x80) != 0;
         if self.trigger {
             self.process_trigger();
@@ -563,7 +563,7 @@ impl NoiseGenerator {
     /// 制御フラグ設定
     pub fn get_control(&self) -> u8 {
         let mut ret = 0;
-        ret |= if self.length_timer.enable { 0x40 } else { 0 };
+        ret |= if self.length_timer.get_enable() { 0x40 } else { 0 };
         ret |= if self.trigger { 0x80 } else { 0 };
         ret
     }
@@ -574,7 +574,7 @@ impl NoiseGenerator {
         self.enable = true;
 
         // 長さタイマーが切れていたら再度トリガー処理
-        if self.length_timer.expired {
+        if self.length_timer.get_expired() {
             self.length_timer.process_trigger();
         }
         // エンベロープジェネレータのトリガー処理
@@ -608,7 +608,7 @@ impl NoiseGenerator {
             }
 
             // 長さタイマーが時間切れしていたら無効に
-            if self.length_timer.expired {
+            if self.length_timer.get_expired() {
                 self.enable = false;
             }
 
