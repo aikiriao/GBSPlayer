@@ -378,10 +378,9 @@ impl SampleGenerator {
     }
 
     /// 波形RAMの設定
-    pub fn set_wave_ram(&mut self, address: usize, value: u8) {
+    pub fn set_wave_ram(&mut self, smpl: usize, value: u8) {
         // 再生中は書き込みは無視される
         if !self.enable {
-            let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
             self.wave_ram[smpl + 0] = (value >> 4) & 0xF;
             self.wave_ram[smpl + 1] = (value >> 0) & 0xF;
         }
@@ -427,12 +426,11 @@ impl SampleGenerator {
     }
 
     /// 波形RAMの取得
-    pub fn get_wave_ram(&self, address: usize) -> u8 {
+    pub fn get_wave_ram(&self, smpl: usize) -> u8 {
         if self.enable {
             // 再生中に読み出すと0xFFを返す
             0xFF
         } else {
-            let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
             (self.wave_ram[smpl + 0] << 4) | (self.wave_ram[smpl + 1])
         }
     }

@@ -150,7 +150,8 @@ impl APU {
                 self.noise_generator.enable = (value & 0x8) != 0;
             }
             HWREG_CHANNEL3_WAVE_PATTERN_RAM_START..HWREG_CHANNEL3_WAVE_PATTERN_RAM_END => {
-                self.sample_generator.set_wave_ram(address, value);
+                let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
+                self.sample_generator.set_wave_ram(smpl, value);
             }
             _ => {
                 // それ以外は無視
@@ -246,7 +247,8 @@ impl APU {
                 ret
             }
             HWREG_CHANNEL3_WAVE_PATTERN_RAM_START..HWREG_CHANNEL3_WAVE_PATTERN_RAM_END => {
-                self.sample_generator.get_wave_ram(address)
+                let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
+                self.sample_generator.get_wave_ram(smpl)
             }
             _ => {
                 // それ以外は0を返す
