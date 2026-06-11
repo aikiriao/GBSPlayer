@@ -313,7 +313,9 @@ where
                 };
                 self.mem[address] = value;
             }
-            HWREG_NR10_CHANNEL1_SWEEP..HWREG_LCDC_LCD_CONTROL => {
+            HWREG_NR10_CHANNEL1_SWEEP..HWREG_LCDC_LCD_CONTROL
+            | HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12
+            | HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34 => {
                 self.apu.write_register(address, value);
                 self.mem[address] = value;
             }
@@ -327,7 +329,9 @@ where
     /// 8bitメモリ読み込み
     pub fn read_mem_u8(&mut self, address: usize) -> u8 {
         let data = match address {
-            HWREG_NR10_CHANNEL1_SWEEP..HWREG_LCDC_LCD_CONTROL => self.apu.read_register(address),
+            HWREG_NR10_CHANNEL1_SWEEP..HWREG_LCDC_LCD_CONTROL
+            | HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12
+            | HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34 => self.apu.read_register(address),
             _ => self.mem[address],
         };
 
@@ -371,7 +375,7 @@ where
 
         // オーディオ信号処理
         for _ in 0..2 {
-            self.apu.clock_tick_2mhz(&mut self.mem);
+            self.apu.clock_tick_2mhz();
         }
     }
 
@@ -383,7 +387,7 @@ where
     /// 1ステレオサンプル出力
     /// 現在の出力サンプルを元に出力を計算します。サンプリングレート間隔で実行してください
     pub fn output_audio_sample(&mut self) -> [f32; 2] {
-        self.apu.compute_output(&self.mem)
+        self.apu.compute_output()
     }
 
     /// 16bitメモリ書き込み
@@ -499,7 +503,7 @@ where
                     (
                         (ret & 0xFF) as u8,
                         (b16 + c) > a16,
-                        ((b16 & 0x0F) + c) > (a16 & 0x0F)
+                        ((b16 & 0x0F) + c) > (a16 & 0x0F),
                     )
                 }
                 let cycle = self.execute_sub_adc_sbc(oprand, sbc);

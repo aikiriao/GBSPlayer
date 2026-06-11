@@ -36,6 +36,8 @@ pub struct APU {
     hpf_coef: f32,
     /// HPFの出力バッファ
     hpf_buffer: [f32; 2],
+    /// 各チャンネルの最終出力値（4bitデジタル値）
+    ch_out: [u8; 4],
     /// パルスジェネレータ
     pulse_generator: [PulseGenerator; 2],
     /// サンプルジェネレータ
@@ -56,6 +58,7 @@ impl APU {
             ch_pan: [Pan::Center; 4],
             hpf_coef: DMG_HPF_COEF_BASE,
             hpf_buffer: [0.0; 2],
+            ch_out: [0; 4],
             sample_generator: SampleGenerator::new(),
             pulse_generator: [PulseGenerator::new(), PulseGenerator::new()],
             noise_generator: NoiseGenerator::new(),
@@ -152,6 +155,9 @@ impl APU {
             HWREG_CHANNEL3_WAVE_PATTERN_RAM_START..HWREG_CHANNEL3_WAVE_PATTERN_RAM_END => {
                 let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
                 self.sample_generator.set_wave_ram(smpl, value);
+            }
+            HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12 | HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34 => {
+                // 書き込みを無視
             }
             _ => {
                 // それ以外は無視
@@ -250,6 +256,8 @@ impl APU {
                 let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
                 self.sample_generator.get_wave_ram(smpl)
             }
+            HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12 => (self.ch_out[1] << 4) | (self.ch_out[0] << 0),
+            HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34 => (self.ch_out[3] << 4) | (self.ch_out[2] << 0),
             _ => {
                 // それ以外は0を返す
                 0
@@ -267,7 +275,7 @@ impl APU {
     }
 
     /// 2MHzクロック単位処理
-    pub fn clock_tick_2mhz(&mut self, mem: &mut [u8]) {
+    pub fn clock_tick_2mhz(&mut self) {
         // クロック更新
         self.clock_count = self.clock_count.wrapping_add(1);
 
@@ -275,24 +283,20 @@ impl APU {
         // パルスジェネレータ
         if self.clock_count % 2 == 0 {
             if let Some(out) = self.pulse_generator[0].clock_tick_1mhz() {
-                mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] =
-                    (mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] & 0xF0) | ((out & 0xF) << 0);
+                self.ch_out[0] = out;
             }
             if let Some(out) = self.pulse_generator[1].clock_tick_1mhz() {
-                mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] =
-                    (mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] & 0x0F) | ((out & 0xF) << 4);
+                self.ch_out[1] = out;
             }
         }
         // サンプルジェネレータ
         if let Some(out) = self.sample_generator.clock_tick_2mhz() {
-            mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] =
-                (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] & 0xF0) | ((out & 0xF) << 0);
+            self.ch_out[2] = out;
         }
         // ノイズジェネレータ
         if self.clock_count % 8 == 0 {
             if let Some(out) = self.noise_generator.clock_tick_256khz() {
-                mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] =
-                    (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] & 0x0F) | ((out & 0xF) << 4);
+                self.ch_out[3] = out;
             }
         }
     }
@@ -319,7 +323,7 @@ impl APU {
 
     /// 1ステレオサンプル出力
     /// 現在の出力サンプルを元に出力を計算します。サンプリングレート間隔で実行してください
-    pub fn compute_output(&mut self, mem: &[u8]) -> [f32; 2] {
+    pub fn compute_output(&mut self) -> [f32; 2] {
         let mut output = [0.0, 0.0];
         // 4ch分のON/OFFフラグ
         let ch_on = [
@@ -330,22 +334,10 @@ impl APU {
         ];
         // 4ch分の信号を読み取り・浮動小数化
         let ch_out = [
-            Self::dac(
-                self.pulse_generator[0].dac_enable,
-                (mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] >> 0) & 0xF,
-            ),
-            Self::dac(
-                self.pulse_generator[1].dac_enable,
-                (mem[HWREG_PCM12_AUDIO_DIGITAL_OUTPUTS_12] >> 4) & 0xF,
-            ),
-            Self::dac(
-                self.sample_generator.dac_enable,
-                (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] >> 0) & 0xF,
-            ),
-            Self::dac(
-                self.noise_generator.dac_enable,
-                (mem[HWREG_PCM34_AUDIO_DIGITAL_OUTPUTS_34] >> 4) & 0xF,
-            ),
+            Self::dac(self.pulse_generator[0].dac_enable, self.ch_out[0]),
+            Self::dac(self.pulse_generator[1].dac_enable, self.ch_out[1]),
+            Self::dac(self.sample_generator.dac_enable, self.ch_out[2]),
+            Self::dac(self.noise_generator.dac_enable, self.ch_out[3]),
         ];
         // パン適用しつつステレオにミックス
         for ch in 0..4 {
