@@ -1,3 +1,4 @@
+use crate::apu::*;
 use crate::gbs_file::*;
 use crate::sm83::*;
 use crate::types::*;
@@ -10,7 +11,7 @@ where
     R: AsRef<[u8]>,
 {
     gbs_header: GBSFileHeader,
-    cpu: SM83<R>,
+    cpu: SM83<R, APU>,
     sampling_rate: u32,
     elapsed_cycles: u32,
 }
@@ -97,7 +98,7 @@ where
             .write_mem_u8(HWREG_TAC_TIMER_CONTROL, self.gbs_header.timer_control);
 
         // サンプリングレート設定
-        self.cpu.set_audio_sampling_rate(self.sampling_rate);
+        self.cpu.apu.set_sampling_rate(self.sampling_rate);
 
         // 経過クロックカウントをリセット
         self.elapsed_cycles = 0;
@@ -143,6 +144,6 @@ where
             }
         }
         self.elapsed_cycles -= DMG_SYSTEM_CLOCK_HZ;
-        self.cpu.output_audio_sample()
+        self.cpu.apu.compute_output()
     }
 }

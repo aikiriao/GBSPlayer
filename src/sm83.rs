@@ -1,4 +1,3 @@
-use crate::apu::*;
 use crate::assembler::*;
 use crate::types::*;
 use log::{trace, warn};
@@ -40,9 +39,10 @@ pub const BANK2_START_ADDRESS: usize = 0x4000;
 pub const MODE_START_ADDRESS: usize = 0x6000;
 
 /// SM83エミュレータ
-pub struct SM83<R>
+pub struct SM83<R, A>
 where
     R: AsRef<[u8]>,
+    A: APUDevice,
 {
     /// レジスタ
     pub regs: SM83Registers,
@@ -51,7 +51,7 @@ where
     /// ROM
     pub rom: R,
     /// APU
-    apu: APU,
+    pub apu: A,
     /// RAMゲートレジスタ
     ramg: u8,
     /// MBC1バンクレジスタ1
@@ -76,9 +76,10 @@ where
     vblank_mcycle_count: u32,
 }
 
-impl<R> SM83<R>
+impl<R, A> SM83<R, A>
 where
     R: AsRef<[u8]>,
+    A: APUDevice,
 {
     /// コンストラクタ
     pub fn new(rom: R) -> Self {
@@ -104,7 +105,7 @@ where
                 pc: 0,
             },
             mem: [0; 65536],
-            apu: APU::new(),
+            apu: A::new(),
             ramg: 0xA,
             mbc1_bank1: 1,
             mbc1_bank2: 0,
@@ -377,17 +378,6 @@ where
         for _ in 0..2 {
             self.apu.clock_tick_2mhz();
         }
-    }
-
-    /// 音声出力サンプリングレートの設定
-    pub fn set_audio_sampling_rate(&mut self, sampling_rate: u32) {
-        self.apu.set_sampling_rate(sampling_rate);
-    }
-
-    /// 1ステレオサンプル出力
-    /// 現在の出力サンプルを元に出力を計算します。サンプリングレート間隔で実行してください
-    pub fn output_audio_sample(&mut self) -> [f32; 2] {
-        self.apu.compute_output()
     }
 
     /// 16bitメモリ書き込み

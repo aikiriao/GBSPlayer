@@ -8,7 +8,8 @@ pub const DMG_ROM_BANK_SIZE: usize = 0x4000;
 /// VBlankあたりのマスタークロック数（PPUの1ライン456cycles x 1フレーム154ラインから）
 pub const MASTER_CLOCKS_PER_VBLANK: u32 = 70224;
 /// VBlank（垂直同期）間隔(Hz) 1フレーム当たり70224サイクルであることから導出
-pub const DMG_VBLANK_PERIOD_HZ: f32 = (DMG_MASTER_CLOCK_HZ as f32) / (MASTER_CLOCKS_PER_VBLANK as f32);
+pub const DMG_VBLANK_PERIOD_HZ: f32 =
+    (DMG_MASTER_CLOCK_HZ as f32) / (MASTER_CLOCKS_PER_VBLANK as f32);
 
 // オーディオ仕様
 /// エンベロープスイープの更新頻度(Hz)
@@ -462,6 +463,19 @@ pub enum SweepDirection {
     Negative,
 }
 
+/// パンニング
+#[derive(Debug, Clone, Copy)]
+pub enum Pan {
+    /// 左
+    Left,
+    /// 右
+    Right,
+    /// 中央
+    Center,
+    /// 設定なし（無音）
+    Ignore,
+}
+
 /// デューティ比
 #[derive(Debug, Clone, Copy)]
 pub enum DutyRatio {
@@ -473,6 +487,18 @@ pub enum DutyRatio {
     Duty500,
     /// 75%
     Duty750,
+}
+
+/// APU(Audio Processing Unit)の共通インターフェース
+pub trait APUDevice {
+    /// コンストラクタ
+    fn new() -> Self;
+    /// レジスタ書き込み
+    fn write_register(&mut self, address: usize, value: u8);
+    /// レジスタ読み込み
+    fn read_register(&mut self, address: usize) -> u8;
+    /// 2MHzクロックティック
+    fn clock_tick_2mhz(&mut self);
 }
 
 /// メモリ上にあるデータから16bitデータを読みだす
