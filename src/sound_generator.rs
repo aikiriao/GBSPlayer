@@ -1,6 +1,4 @@
 use crate::types::*;
-use crate::length_timer::*;
-use crate::envelope_generator::*;
 
 /// パルスジェネレータの動作クロック
 const PULSE_GENERATOR_CLOCK_HZ: u32 = 1048576;
@@ -16,6 +14,46 @@ const PULSE_TABLE_DUTY125: [u8; 8] = [1, 1, 1, 1, 1, 1, 1, 0];
 const PULSE_TABLE_DUTY250: [u8; 8] = [0, 1, 1, 1, 1, 1, 1, 0];
 const PULSE_TABLE_DUTY500: [u8; 8] = [0, 1, 1, 1, 1, 0, 0, 0];
 const PULSE_TABLE_DUTY750: [u8; 8] = [1, 0, 0, 0, 0, 0, 0, 1];
+
+/// エンベロープ（ボリューム）ジェネレータ
+#[derive(Debug)]
+pub struct EnvelopeGenerator {
+    /// ボリューム現在値（更新を簡易にするために符号付き）
+    volume: i8,
+    /// ボリューム更新方向（false: 負、true: 正）
+    volume_delta_dir: bool,
+    /// ボリューム更新値
+    volume_delta: i8,
+    /// 初期ボリューム
+    initial_volume: i8,
+    /// ボリューム変更頻度
+    volume_sweep_pace: u8,
+    /// エンベロープ更新間隔クロックカウント
+    volume_update_period: u32,
+    /// クロックカウント
+    clock_count: u32,
+    /// 更新クロック周期
+    update_period: u32,
+}
+
+/// 長さタイマー
+#[derive(Debug)]
+pub struct LengthTimer {
+    /// 有効か
+    enable: bool,
+    /// タイマー時間切れか？
+    expired: bool,
+    /// 持続時間
+    initial_length_timer: u8,
+    /// タイマーカウント
+    length_timer: u16,
+    /// タイムアウトカウント
+    timeout: u16,
+    /// クロックカウント
+    clock_count: u32,
+    /// 更新クロック周期
+    update_period: u32,
+}
 
 /// CH1/CH2: パルス（矩形波）ジェネレータ
 #[derive(Debug)]
@@ -114,6 +152,136 @@ pub struct NoiseGenerator {
     eg: EnvelopeGenerator,
     /// 長さタイマー
     length_timer: LengthTimer,
+}
+
+impl EnvelopeGenerator {
+    /// コンストラクタ
+    pub fn new(clock_tick_hz: u32) -> Self {
+        assert!(clock_tick_hz % APU_ENVELOPE_SWEEP_HZ == 0);
+
+        Self {
+            volume: 0,
+            volume_delta_dir: false,
+            volume_delta: 0,
+            initial_volume: 0,
+            volume_sweep_pace: 0,
+            volume_update_period: 0,
+            clock_count: 0,
+            update_period: clock_tick_hz / APU_ENVELOPE_SWEEP_HZ,
+        }
+    }
+
+    /// ボリューム・エンベロープの設定
+    pub fn set_volume_envelope(&mut self, value: u8) {
+        self.initial_volume = ((value >> 4) & 0xF) as i8;
+        self.volume_delta_dir = (value & 0x8) != 0;
+        self.volume_sweep_pace = value & 0x7;
+        if self.volume_sweep_pace == 0 {
+            self.volume = self.initial_volume;
+        }
+    }
+
+    /// ボリューム・エンベロープの取得
+    pub fn get_volume_envelope(&self) -> u8 {
+        let mut ret = 0;
+        ret |= (self.initial_volume as u8) << 4;
+        ret |= if self.volume_delta_dir { 0x8 } else { 0 };
+        ret |= self.volume_sweep_pace & 0x7;
+        ret
+    }
+
+    /// 現在のボリューム値の取得
+    pub fn get_volume(&self) -> u8 {
+        self.volume as u8
+    }
+
+    /// トリガー時の処理
+    pub fn process_trigger(&mut self) {
+        // エンベロープタイマーのリセット
+        self.clock_count = 0;
+        // ボリュームのリセット
+        self.volume = self.initial_volume;
+        // 更新間隔クロックの設定
+        self.volume_update_period = (self.volume_sweep_pace as u32) * self.update_period;
+        // ボリューム更新方向の設定
+        self.volume_delta = if self.volume_delta_dir { 1 } else { -1 };
+    }
+
+    /// クロック単位処理
+    pub fn clock_tick(&mut self) {
+        if self.volume_update_period > 0 {
+            self.clock_count += 1;
+            if self.clock_count >= self.volume_update_period {
+                self.volume += self.volume_delta;
+                self.volume = self.volume.clamp(0, 0xF);
+                self.clock_count -= self.volume_update_period;
+            }
+        }
+    }
+}
+
+impl LengthTimer {
+    /// コンストラクタ
+    pub fn new(clock_tick_hz: u32) -> Self {
+        assert!(clock_tick_hz % APU_SOUND_LENGTH_HZ == 0);
+
+        Self {
+            enable: false,
+            expired: true,
+            initial_length_timer: 0,
+            length_timer: 0,
+            timeout: 0,
+            clock_count: 0,
+            update_period: clock_tick_hz / APU_SOUND_LENGTH_HZ,
+        }
+    }
+
+    /// タイマーが切れているか判定
+    pub fn get_expired(&self) -> bool {
+        self.expired
+    }
+
+    /// 有効フラグの設定
+    pub fn set_enable(&mut self, flag: bool) {
+        self.enable = flag;
+    }
+
+    /// 有効フラグの取得
+    pub fn get_enable(&self) -> bool {
+        self.enable
+    }
+
+    /// 長さタイマーの設定
+    pub fn set_length_timer(&mut self, initial_timer: u8, timeout: u16) {
+        self.initial_length_timer = initial_timer;
+        self.timeout = timeout;
+    }
+
+    /// 長さタイマーの設定
+    pub fn get_initial_length_timer(&self) -> u8 {
+        self.initial_length_timer
+    }
+
+    /// トリガー時の処理
+    pub fn process_trigger(&mut self) {
+        self.length_timer = self.initial_length_timer as u16;
+        self.expired = false;
+        self.clock_count = 0;
+    }
+
+    /// クロック単位処理
+    pub fn clock_tick(&mut self) {
+        if self.enable && !self.expired {
+            self.clock_count += 1;
+            if self.clock_count >= self.update_period {
+                self.length_timer += 1;
+                if self.length_timer >= self.timeout {
+                    self.expired = true;
+                }
+                self.clock_count -= self.update_period;
+            }
+        }
+    }
 }
 
 impl PulseGenerator {

@@ -3,9 +3,8 @@
 pub mod types;
 pub mod gbs_file;
 pub mod gbs_player;
-mod length_timer;
-mod envelope_generator;
 mod assembler;
 mod sm83;
 mod sound_generator;
 mod apu;
+mod midiapu;
