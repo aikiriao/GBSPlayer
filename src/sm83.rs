@@ -260,6 +260,16 @@ where
         }
     }
 
+    /// オーディオ出力間隔設定
+    pub fn set_audio_sampling_rate(&mut self, sampling_rate: u32) {
+        self.apu.set_sampling_rate(sampling_rate);
+    }
+
+    /// オーディオ出力計算
+    pub fn compute_audio_output(&mut self) -> A::Output {
+        self.apu.compute_output()
+    }
+
     /// 8bitメモリ書き込み
     pub fn write_mem_u8(&mut self, address: usize, value: u8) {
         match address {

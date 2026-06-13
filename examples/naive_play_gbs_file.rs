@@ -1,7 +1,8 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use sm83::gbs_file::*;
-use sm83::gbs_player::*;
-use sm83::types::*;
+use gbs_player::gbs_file::*;
+use gbs_player::gbs_player::*;
+use gbs_player::types::*;
+use gbs_player::apu::*;
 use std::env;
 use std::fmt::Error;
 
@@ -41,7 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .copy_from_slice(&rom);
 
         // エミュレータ作成
-        let mut player = GBSPlayer::new(&header, load_rom, sampling_rate);
+        let mut player: GBSPlayer<_, APU> = GBSPlayer::new(&header, load_rom, sampling_rate);
         player.load();
         player.init(song_number);
 

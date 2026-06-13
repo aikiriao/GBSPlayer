@@ -45,15 +45,6 @@ fn dac(enable: bool, input: u8) -> f32 {
 }
 
 impl APU {
-    /// 出力サンプリングレートの設定
-    pub fn set_sampling_rate(&mut self, sampling_rate: u32) {
-        // HPFの係数を再計算
-        self.hpf_coef = libm::pow(
-            DMG_HPF_COEF_BASE as f64,
-            (DMG_MASTER_CLOCK_HZ as f64) / (sampling_rate as f64),
-        ) as f32;
-    }
-
     /// HPFの適用
     fn apply_hpf(&mut self, input: &mut [f32; 2]) {
         for ch in 0..2 {
@@ -62,58 +53,11 @@ impl APU {
             input[ch] = out;
         }
     }
-
-    /// 1ステレオサンプル出力
-    /// 現在の出力サンプルを元に出力を計算します。サンプリングレート間隔で実行してください
-    pub fn compute_output(&mut self) -> [f32; 2] {
-        let mut output = [0.0, 0.0];
-        // 4ch分のON/OFFフラグ
-        let ch_on = [
-            self.pulse_generator[0].enable,
-            self.pulse_generator[1].enable,
-            self.sample_generator.enable,
-            self.noise_generator.enable,
-        ];
-        // 4ch分の信号を読み取り・浮動小数化
-        let ch_out = [
-            dac(self.pulse_generator[0].dac_enable, self.ch_out[0]),
-            dac(self.pulse_generator[1].dac_enable, self.ch_out[1]),
-            dac(self.sample_generator.dac_enable, self.ch_out[2]),
-            dac(self.noise_generator.dac_enable, self.ch_out[3]),
-        ];
-        // パン適用しつつステレオにミックス
-        for ch in 0..4 {
-            if ch_on[ch] {
-                let out = ch_out[ch];
-                match self.ch_pan[ch] {
-                    Pan::Left => {
-                        output[0] += out;
-                    }
-                    Pan::Right => {
-                        output[1] += out;
-                    }
-                    Pan::Center => {
-                        output[0] += out;
-                        output[1] += out;
-                    }
-                    Pan::Ignore => {}
-                }
-            }
-        }
-        // マスターボリューム適用
-        // NOTE:
-        // - master_volume==7で入力をそのまま出力する。
-        // - スケールは不明（ドキュメント化されてない）。
-        for ch in 0..2 {
-            output[ch] *= ((self.master_volume[ch] as f32) + 1.0) / 8.0;
-        }
-        // HPF適用
-        self.apply_hpf(&mut output);
-        output
-    }
 }
 
 impl APUDevice for APU {
+    type Output = [f32; 2];
+
     /// コンストラクタ
     fn new() -> Self {
         Self {
@@ -129,6 +73,15 @@ impl APUDevice for APU {
             noise_generator: NoiseGenerator::new(),
             clock_count: 0,
         }
+    }
+
+    /// 出力サンプリングレートの設定
+    fn set_sampling_rate(&mut self, sampling_rate: u32) {
+        // HPFの係数を再計算
+        self.hpf_coef = libm::pow(
+            DMG_HPF_COEF_BASE as f64,
+            (DMG_MASTER_CLOCK_HZ as f64) / (sampling_rate as f64),
+        ) as f32;
     }
 
     /// レジスタへの書き込み
@@ -355,5 +308,53 @@ impl APUDevice for APU {
                 self.ch_out[3] = out;
             }
         }
+    }
+
+    /// 1ステレオサンプル出力
+    fn compute_output(&mut self) -> [f32; 2] {
+        let mut output = [0.0, 0.0];
+        // 4ch分のON/OFFフラグ
+        let ch_on = [
+            self.pulse_generator[0].enable,
+            self.pulse_generator[1].enable,
+            self.sample_generator.enable,
+            self.noise_generator.enable,
+        ];
+        // 4ch分の信号を読み取り・浮動小数化
+        let ch_out = [
+            dac(self.pulse_generator[0].dac_enable, self.ch_out[0]),
+            dac(self.pulse_generator[1].dac_enable, self.ch_out[1]),
+            dac(self.sample_generator.dac_enable, self.ch_out[2]),
+            dac(self.noise_generator.dac_enable, self.ch_out[3]),
+        ];
+        // パン適用しつつステレオにミックス
+        for ch in 0..4 {
+            if ch_on[ch] {
+                let out = ch_out[ch];
+                match self.ch_pan[ch] {
+                    Pan::Left => {
+                        output[0] += out;
+                    }
+                    Pan::Right => {
+                        output[1] += out;
+                    }
+                    Pan::Center => {
+                        output[0] += out;
+                        output[1] += out;
+                    }
+                    Pan::Ignore => {}
+                }
+            }
+        }
+        // マスターボリューム適用
+        // NOTE:
+        // - master_volume==7で入力をそのまま出力する。
+        // - スケールは不明（ドキュメント化されてない）。
+        for ch in 0..2 {
+            output[ch] *= ((self.master_volume[ch] as f32) + 1.0) / 8.0;
+        }
+        // HPF適用
+        self.apply_hpf(&mut output);
+        output
     }
 }

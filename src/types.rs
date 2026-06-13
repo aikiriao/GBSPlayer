@@ -493,14 +493,19 @@ pub enum DutyRatio {
 
 /// APU(Audio Processing Unit)の共通インターフェース
 pub trait APUDevice {
+    type Output;
     /// コンストラクタ
     fn new() -> Self;
+    /// 出力レート設定
+    fn set_sampling_rate(&mut self, sampling_rate: u32);
     /// レジスタ書き込み
     fn write_register(&mut self, address: usize, value: u8);
     /// レジスタ読み込み
     fn read_register(&mut self, address: usize) -> u8;
     /// 2MHzクロックティック
     fn clock_tick_2mhz(&mut self);
+    /// 出力計算 出力レート間隔で実行
+    fn compute_output(&mut self) -> Self::Output;
 }
 
 /// メモリ上にあるデータから16bitデータを読みだす

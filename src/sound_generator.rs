@@ -415,6 +415,11 @@ impl PulseGenerator {
         PULSE_GENERATOR_CLOCK_HZ as f32 / (8.0 * (2048.0 - self.period as f32))
     }
 
+    /// 現在のボリュームの取得
+    pub fn get_volume(&self) -> u8 {
+        self.eg.get_volume()
+    }
+
     /// トリガーON時の処理
     fn process_trigger(&mut self) {
         // チャンネルを有効に

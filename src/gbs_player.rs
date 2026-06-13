@@ -1,4 +1,3 @@
-use crate::apu::*;
 use crate::gbs_file::*;
 use crate::sm83::*;
 use crate::types::*;
@@ -6,19 +5,21 @@ use crate::types::*;
 /// init/playの戻り先アドレス
 const GBSPLAYER_INIT_PLAY_RETURN_ADDRESS: u16 = 0x0000;
 
-pub struct GBSPlayer<R>
+pub struct GBSPlayer<R, A>
 where
     R: AsRef<[u8]>,
+    A: APUDevice,
 {
     gbs_header: GBSFileHeader,
-    cpu: SM83<R, APU>,
+    cpu: SM83<R, A>,
     sampling_rate: u32,
     elapsed_cycles: u32,
 }
 
-impl<R> GBSPlayer<R>
+impl<R, A> GBSPlayer<R, A>
 where
     R: AsRef<[u8]>,
+    A: APUDevice,
 {
     /// コンストラクタ
     pub fn new(gbs_header: &GBSFileHeader, rom: R, sampling_rate: u32) -> Self {
@@ -98,7 +99,7 @@ where
             .write_mem_u8(HWREG_TAC_TIMER_CONTROL, self.gbs_header.timer_control);
 
         // サンプリングレート設定
-        self.cpu.apu.set_sampling_rate(self.sampling_rate);
+        self.cpu.set_audio_sampling_rate(self.sampling_rate);
 
         // 経過クロックカウントをリセット
         self.elapsed_cycles = 0;
@@ -115,7 +116,7 @@ where
     }
 
     /// 1ステレオサンプル出力
-    pub fn output_audio_sample(&mut self) -> [f32; 2] {
+    pub fn output_audio_sample(&mut self) -> A::Output {
         while self.elapsed_cycles < DMG_SYSTEM_CLOCK_HZ {
             // 命令実行
             let (_, cycle) = self.cpu.execute_step();
@@ -144,6 +145,6 @@ where
             }
         }
         self.elapsed_cycles -= DMG_SYSTEM_CLOCK_HZ;
-        self.cpu.apu.compute_output()
+        self.cpu.compute_audio_output()
     }
 }
