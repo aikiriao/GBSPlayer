@@ -335,7 +335,7 @@ impl APUDevice for APU {
         // クロック更新
         self.clock_count = self.clock_count.wrapping_add(1);
 
-        // 出力があればハードウェアレジスタに書き込む
+        // 出力があれば書き出す
         // パルスジェネレータ
         if self.clock_count % 2 == 0 {
             if let Some(out) = self.pulse_generator[0].clock_tick_1mhz() {
