@@ -103,6 +103,8 @@ pub const HWREG_NR51_SOUND_PANNING: usize = 0xFF25;
 pub const HWREG_NR52_AUDIO_MASTER_CONTROL: usize = 0xFF26;
 /// チャンネル3の波形RAM
 pub const HWREG_CHANNEL3_WAVE_PATTERN_RAM_START: usize = 0xFF30;
+/// チャンネル3の波形RAM領域終端アドレス
+pub const HWREG_CHANNEL3_WAVE_PATTERN_RAM_END: usize = HWREG_CHANNEL3_WAVE_PATTERN_RAM_START + 15;
 /// LCD制御
 pub const HWREG_LCDC_LCD_CONTROL: usize = 0xFF40;
 /// LCDステータス

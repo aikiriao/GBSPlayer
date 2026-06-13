@@ -1,8 +1,6 @@
 use crate::sound_generator::*;
 use crate::types::*;
 
-/// 波形RAM領域終端アドレス
-const HWREG_CHANNEL3_WAVE_PATTERN_RAM_END: usize = HWREG_CHANNEL3_WAVE_PATTERN_RAM_START + 16;
 /// ゲームボーイのHPFの係数基準値
 const DMG_HPF_COEF_BASE: f32 = 0.999958;
 /// ゲームボーイカラーのHPFの係数基準値
@@ -219,7 +217,7 @@ impl APUDevice for APU {
                 self.sample_generator.enable = (value & 0x4) != 0;
                 self.noise_generator.enable = (value & 0x8) != 0;
             }
-            HWREG_CHANNEL3_WAVE_PATTERN_RAM_START..HWREG_CHANNEL3_WAVE_PATTERN_RAM_END => {
+            HWREG_CHANNEL3_WAVE_PATTERN_RAM_START..=HWREG_CHANNEL3_WAVE_PATTERN_RAM_END => {
                 let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
                 self.sample_generator.set_wave_ram(smpl, value);
             }
@@ -319,7 +317,7 @@ impl APUDevice for APU {
                 ret |= if self.noise_generator.enable { 0x08 } else { 0 };
                 ret
             }
-            HWREG_CHANNEL3_WAVE_PATTERN_RAM_START..HWREG_CHANNEL3_WAVE_PATTERN_RAM_END => {
+            HWREG_CHANNEL3_WAVE_PATTERN_RAM_START..=HWREG_CHANNEL3_WAVE_PATTERN_RAM_END => {
                 let smpl = 2 * (address - HWREG_CHANNEL3_WAVE_PATTERN_RAM_START);
                 self.sample_generator.get_wave_ram(smpl)
             }
