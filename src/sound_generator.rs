@@ -410,6 +410,11 @@ impl PulseGenerator {
         ret
     }
 
+    /// ピッチ周波数の取得
+    pub fn get_pitch_frequency(&self) -> f32 {
+        PULSE_GENERATOR_CLOCK_HZ as f32 / (8.0 * (2048.0 - self.period as f32))
+    }
+
     /// トリガーON時の処理
     fn process_trigger(&mut self) {
         // チャンネルを有効に
@@ -615,6 +620,11 @@ impl SampleGenerator {
         self.sample_update_period = 2048 - self.period;
         // サンプル参照位置のリセット
         self.wave_ram_index = 1;
+    }
+
+    /// ピッチ周波数の取得
+    pub fn get_pitch_frequency(&self) -> f32 {
+        SAMPLE_GENERATOR_CLOCK_HZ as f32 / (32.0 * (2048.0 - self.period as f32))
     }
 
     /// 1システムクロック単位処理
