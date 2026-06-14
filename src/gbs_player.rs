@@ -126,7 +126,6 @@ where
             // 待機処理でplay/initアドレスに来てしまったら戻す
             if self.cpu.regs.pc == self.gbs_header.play_address
                 || self.cpu.regs.pc == self.gbs_header.init_address
-                || self.cpu.regs.pc == self.gbs_header.load_address
             {
                 self.cpu.regs.pc = GBSPLAYER_INIT_PLAY_RETURN_ADDRESS;
             }
