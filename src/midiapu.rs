@@ -40,6 +40,8 @@ const MIDICC_EFFECT1_DEPTH: u8 = 0x5B;
 const NOTEON_PITCH_BEND: u16 = 8192;
 /// ノートオン時のベロシティ
 const NOTEON_VELOCITY: u8 = 127;
+/// ノートオン時の最大周波数
+const MAX_NOTEON_FREQUENCY: f32 = 12543.9;
 
 /// 更新間隔
 const MIDIAPU_DEFAULT_UPDATE_PERIOD_HZ: u64 = 64;
@@ -195,6 +197,11 @@ impl MIDIAPU {
 
     /// ノートオン処理
     fn noteon(&mut self, ch: u8, program: u8, volume: u8, pitch: f32) {
+        // ピッチが高すぎる場合は発音をスキップ
+        if pitch > MAX_NOTEON_FREQUENCY {
+            return;
+        }
+
         let ch_status = self.apu_ch_status[ch as usize];
 
         // ノートオフが漏れている場合はノートオフを送信
