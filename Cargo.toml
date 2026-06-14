@@ -9,3 +9,4 @@ log = "0.4.28"
 
 [dev-dependencies]
 cpal = "0.16.0"
+midir = "0.11.0"

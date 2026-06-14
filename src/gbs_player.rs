@@ -117,6 +117,7 @@ where
 
     /// 1ステレオサンプル出力
     pub fn output_audio_sample(&mut self) -> A::Output {
+        // サンプリング周期になるまで命令実行
         while self.elapsed_cycles < DMG_SYSTEM_CLOCK_HZ {
             // 命令実行
             let (_, cycle) = self.cpu.execute_step();
