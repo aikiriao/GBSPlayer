@@ -222,6 +222,12 @@ impl MIDIAPU {
             program - 0x80
         };
 
+        // ボリュームが0のときは発音しない
+        // エクスプレッション0で発音しても音が出てしまうことがある
+        if volume == 0 {
+            return;
+        }
+
         // リズムパートでピッチが範囲外の場合は発音をスキップ
         if !isdrum && (pitch > MAX_NOTEON_FREQUENCY || pitch < MIN_NOTEON_FREQUENCY) {
             return;
@@ -482,10 +488,9 @@ impl APUDevice for MIDIAPU {
             }
             HWREG_NR44_CHANNEL4_CONTROL => {
                 self.noise_generator.set_control(value);
-                // ノートオン ボリュームが0の場合は発音しない（ドラム音が鳴ってしまうため...）
-                let volume = self.noise_generator.get_volume();
-                if (value & 0x80 != 0) && (volume > 0) {
-                    self.noteon(3, 0x80 + 40, volume, 0.0);
+                // ノートオン
+                if value & 0x80 != 0 {
+                    self.noteon(3, 0x80 + 40, self.noise_generator.get_volume(), 0.0);
                 }
             }
             HWREG_NR50_MASTER_VOLUME_VIN_PANNING => {
