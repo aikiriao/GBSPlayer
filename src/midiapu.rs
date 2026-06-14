@@ -42,6 +42,8 @@ const NOTEON_PITCH_BEND: u16 = 8192;
 const NOTEON_VELOCITY: u8 = 127;
 /// ノートオン時の最大周波数
 const MAX_NOTEON_FREQUENCY: f32 = 12543.9;
+/// ノートオン時の最低周波数
+const MIN_NOTEON_FREQUENCY: f32 = 8.2;
 
 /// 更新間隔
 const MIDIAPU_DEFAULT_UPDATE_PERIOD_HZ: u64 = 64;
@@ -197,11 +199,6 @@ impl MIDIAPU {
 
     /// ノートオン処理
     fn noteon(&mut self, ch: u8, program: u8, volume: u8, pitch: f32) {
-        // ピッチが高すぎる場合は発音をスキップ
-        if pitch > MAX_NOTEON_FREQUENCY {
-            return;
-        }
-
         let ch_status = self.apu_ch_status[ch as usize];
 
         // ノートオフが漏れている場合はノートオフを送信
@@ -224,6 +221,11 @@ impl MIDIAPU {
         } else {
             program - 0x80
         };
+
+        // リズムパートでピッチが範囲外の場合は発音をスキップ
+        if !isdrum && (pitch > MAX_NOTEON_FREQUENCY || pitch < MIN_NOTEON_FREQUENCY) {
+            return;
+        }
 
         // プログラムチェンジ
         if !isdrum && program != ch_status.program {
