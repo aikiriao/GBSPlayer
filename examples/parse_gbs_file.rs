@@ -1,4 +1,4 @@
-use sm83::gbs_file::*;
+use gbs_player::gbs_file::*;
 use std::env;
 use std::fmt::Error;
 
