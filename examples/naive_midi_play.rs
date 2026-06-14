@@ -10,7 +10,7 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-const MIDI_OUTPUT_INTERVAL_MS: u32 = 2;
+const MIDI_OUTPUT_INTERVAL_MS: u32 = 1;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
