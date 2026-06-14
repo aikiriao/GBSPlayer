@@ -482,9 +482,10 @@ impl APUDevice for MIDIAPU {
             }
             HWREG_NR44_CHANNEL4_CONTROL => {
                 self.noise_generator.set_control(value);
-                // ノートオン
-                if value & 0x80 != 0 {
-                    self.noteon(3, 0x80 + 35, self.noise_generator.get_volume(), 0.0);
+                // ノートオン ボリュームが0の場合は発音しない（ドラム音が鳴ってしまうため...）
+                let volume = self.noise_generator.get_volume();
+                if (value & 0x80 != 0) && (volume > 0) {
+                    self.noteon(3, 0x80 + 40, volume, 0.0);
                 }
             }
             HWREG_NR50_MASTER_VOLUME_VIN_PANNING => {
