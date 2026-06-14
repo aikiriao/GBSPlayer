@@ -84,6 +84,8 @@ struct MIDIChannelStatus {
     mute: bool,
     /// ノートオンされているか？
     noteon: bool,
+    /// プログラム番号
+    program: u8,
     /// ノート番号
     noteno: u8,
     /// ピッチベンド
@@ -191,33 +193,55 @@ impl MIDIAPU {
         self.midi_update_period_cycles = cycles;
     }
 
-    /// パルスジェネレータのノートオン処理
-    fn noteon_pulse_generator(&mut self, ch: u8) {
+    /// ノートオン処理
+    fn noteon(&mut self, ch: u8, program: u8, volume: u8, pitch: f32) {
         let ch_status = self.apu_ch_status[ch as usize];
+
         // ノートオフが漏れている場合はノートオフを送信
         if ch_status.noteon {
+            let midi_ch = if ch_status.program < 0x80 {
+                ch
+            } else {
+                MIDI_PERCUSSION_CHANNEL
+            };
             self.push_channel_message(
                 ch_status.mute,
-                &[MIDIMSG_NOTE_OFF | ch, ch_status.noteno, 0],
+                &[MIDIMSG_NOTE_OFF | midi_ch, ch_status.noteno, 0],
             );
         }
 
+        let isdrum = program >= 0x80;
+        let midi_ch = if !isdrum { ch } else { MIDI_PERCUSSION_CHANNEL };
+        let noteno = if !isdrum {
+            herz_to_noteno(pitch)
+        } else {
+            program - 0x80
+        };
+
+        // プログラムチェンジ
+        if !isdrum && program != ch_status.program {
+            self.push_channel_message(ch_status.mute, &[MIDIMSG_PROGRAM_CHANGE | midi_ch, program]);
+        }
+
         // エクスプレッション
-        let volume = self.pulse_generator[ch as usize].get_volume();
         let expression = volume_to_midi_volume(MIDIVolumeCurve::SquareRoot, volume);
         if expression != ch_status.expression {
             self.push_channel_message(
                 ch_status.mute,
-                &[MIDIMSG_CONTROL_CHANGE | ch, MIDICC_EXPRESSION, expression],
+                &[
+                    MIDIMSG_CONTROL_CHANGE | midi_ch,
+                    MIDICC_EXPRESSION,
+                    expression,
+                ],
             );
         }
 
         // ピッチベンド（基準ピッチベンド値から変わっていれば）
-        if NOTEON_PITCH_BEND != ch_status.pitch_bend {
+        if !isdrum && NOTEON_PITCH_BEND != ch_status.pitch_bend {
             self.push_channel_message(
                 ch_status.mute,
                 &[
-                    MIDIMSG_PITCH_BEND | ch,
+                    MIDIMSG_PITCH_BEND | midi_ch,
                     (NOTEON_PITCH_BEND & 0x7F) as u8,        // LSB
                     ((NOTEON_PITCH_BEND >> 7) & 0x7F) as u8, // MSB
                 ],
@@ -225,16 +249,15 @@ impl MIDIAPU {
         }
 
         // ノートオン送信
-        let pitch = self.pulse_generator[ch as usize].get_pitch_frequency();
-        let noteno = herz_to_noteno(pitch);
         self.push_channel_message(
             ch_status.mute,
-            &[MIDIMSG_NOTE_ON | ch, noteno, NOTEON_VELOCITY],
+            &[MIDIMSG_NOTE_ON | midi_ch, noteno, NOTEON_VELOCITY],
         );
 
         // チャンネル状態更新
         let ch_status = &mut self.apu_ch_status[ch as usize];
         ch_status.noteon = true;
+        ch_status.program = program;
         ch_status.noteno = noteno;
         ch_status.pitch_bend_base = pitch;
         ch_status.pitch_bend = NOTEON_PITCH_BEND;
@@ -244,33 +267,56 @@ impl MIDIAPU {
     /// 状態変更に基づいてMIDIメッセージバッファを更新
     fn update_midi_message_buffer(&mut self) {
         // ノートオフ
-        // パルスジェネレータ
-        for ch in 0..2 {
+        let ch_enable = [
+            self.pulse_generator[0].enable,
+            self.pulse_generator[1].enable,
+            self.sample_generator.enable,
+            self.noise_generator.enable,
+        ];
+        for ch in 0..4 {
             let ch_status = self.apu_ch_status[ch];
-            if ch_status.noteon && !self.pulse_generator[ch].enable {
+            let midi_ch = if ch_status.program < 0x80 {
+                ch as u8
+            } else {
+                MIDI_PERCUSSION_CHANNEL
+            };
+            if ch_status.noteon && !ch_enable[ch] {
                 self.push_channel_message(
                     ch_status.mute,
-                    &[MIDIMSG_NOTE_OFF | (ch as u8), ch_status.noteno, 0],
+                    &[MIDIMSG_NOTE_OFF | midi_ch, ch_status.noteno, 0],
                 );
                 self.apu_ch_status[ch].noteon = false;
             }
         }
 
         // 再生パラメータ更新
-        // パルスジェネレータ
-        for ch in 0..2 {
+        let ch_volume = [
+            self.pulse_generator[0].get_volume(),
+            self.pulse_generator[1].get_volume(),
+            self.sample_generator.get_volume(),
+            self.noise_generator.get_volume(),
+        ];
+        let ch_pitch = [
+            self.pulse_generator[0].get_pitch_frequency(),
+            self.pulse_generator[1].get_pitch_frequency(),
+            self.sample_generator.get_pitch_frequency(),
+            0.0, // 無効値
+        ];
+        for ch in 0..4 {
             let ch_status = self.apu_ch_status[ch];
+            let midi_ch = if ch_status.program < 0x80 {
+                ch as u8
+            } else {
+                MIDI_PERCUSSION_CHANNEL
+            };
             if self.apu_ch_status[ch].noteon {
                 // エクスプレッション
-                let expression = volume_to_midi_volume(
-                    MIDIVolumeCurve::SquareRoot,
-                    self.pulse_generator[ch].get_volume(),
-                );
+                let expression = volume_to_midi_volume(MIDIVolumeCurve::SquareRoot, ch_volume[ch]);
                 if expression != ch_status.expression {
                     self.push_channel_message(
                         ch_status.mute,
                         &[
-                            MIDIMSG_CONTROL_CHANGE | (ch as u8),
+                            MIDIMSG_CONTROL_CHANGE | midi_ch,
                             MIDICC_EXPRESSION,
                             expression,
                         ],
@@ -279,21 +325,23 @@ impl MIDIAPU {
                 }
 
                 // ピッチベンド
-                let pitch_bend = pitch_to_pitch_bend(
-                    self.pulse_generator[ch].get_pitch_frequency(),
-                    ch_status.pitch_bend_base,
-                    12, // TODO: 仮
-                );
-                if pitch_bend != ch_status.pitch_bend {
-                    self.push_channel_message(
-                        ch_status.mute,
-                        &[
-                            MIDIMSG_PITCH_BEND | (ch as u8),
-                            (pitch_bend & 0x7F) as u8,        // LSB
-                            ((pitch_bend >> 7) & 0x7F) as u8, // MSB
-                        ],
+                if ch_pitch[ch] > 0.0 {
+                    let pitch_bend = pitch_to_pitch_bend(
+                        ch_pitch[ch],
+                        ch_status.pitch_bend_base,
+                        12, // TODO: 仮
                     );
-                    self.apu_ch_status[ch].pitch_bend = pitch_bend;
+                    if pitch_bend != ch_status.pitch_bend {
+                        self.push_channel_message(
+                            ch_status.mute,
+                            &[
+                                MIDIMSG_PITCH_BEND | midi_ch,
+                                (pitch_bend & 0x7F) as u8,        // LSB
+                                ((pitch_bend >> 7) & 0x7F) as u8, // MSB
+                            ],
+                        );
+                        self.apu_ch_status[ch].pitch_bend = pitch_bend;
+                    }
                 }
             }
         }
@@ -314,6 +362,7 @@ impl APUDevice for MIDIAPU {
             noise_generator: NoiseGenerator::new(),
             apu_ch_status: [MIDIChannelStatus {
                 mute: false,
+                program: 0,
                 noteon: false,
                 noteno: 0,
                 pitch_bend: NOTEON_PITCH_BEND,
@@ -360,7 +409,12 @@ impl APUDevice for MIDIAPU {
                 self.pulse_generator[0].set_period_high_control(value);
                 // ノートオン
                 if value & 0x80 != 0 {
-                    self.noteon_pulse_generator(0);
+                    self.noteon(
+                        0,
+                        80,
+                        self.pulse_generator[0].get_volume(),
+                        self.pulse_generator[0].get_pitch_frequency(),
+                    );
                 }
             }
             HWREG_NR21_CHANNEL2_LENGTH_TIMER_DURY_CYCLE => {
@@ -376,7 +430,12 @@ impl APUDevice for MIDIAPU {
                 self.pulse_generator[1].set_period_high_control(value);
                 // ノートオン
                 if value & 0x80 != 0 {
-                    self.noteon_pulse_generator(1);
+                    self.noteon(
+                        1,
+                        80,
+                        self.pulse_generator[1].get_volume(),
+                        self.pulse_generator[1].get_pitch_frequency(),
+                    );
                 }
             }
             HWREG_NR30_CHANNEL3_DAC_ENABLE => {
@@ -393,6 +452,15 @@ impl APUDevice for MIDIAPU {
             }
             HWREG_NR33_CHANNEL3_PERIOD_HIGH_CONTROL => {
                 self.sample_generator.set_period_high_control(value);
+                // ノートオン
+                if value & 0x80 != 0 {
+                    self.noteon(
+                        2,
+                        80,
+                        self.sample_generator.get_volume(),
+                        self.sample_generator.get_pitch_frequency(),
+                    );
+                }
             }
             HWREG_NR41_CHANNEL4_LENGTH_TIMER => {
                 self.noise_generator.set_length_timer(value);
@@ -405,6 +473,10 @@ impl APUDevice for MIDIAPU {
             }
             HWREG_NR44_CHANNEL4_CONTROL => {
                 self.noise_generator.set_control(value);
+                // ノートオン
+                if value & 0x80 != 0 {
+                    self.noteon(3, 0x80 + 35, self.noise_generator.get_volume(), 0.0);
+                }
             }
             HWREG_NR50_MASTER_VOLUME_VIN_PANNING => {
                 self.master_volume[0] = (value >> 4) & 0x7;

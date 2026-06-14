@@ -627,6 +627,11 @@ impl SampleGenerator {
         self.wave_ram_index = 1;
     }
 
+    /// 現在のボリュームの取得
+    pub fn get_volume(&self) -> u8 {
+        15 >> self.output_level_shift
+    }
+
     /// ピッチ周波数の取得
     pub fn get_pitch_frequency(&self) -> f32 {
         SAMPLE_GENERATOR_CLOCK_HZ as f32 / (32.0 * (2048.0 - self.period as f32))
@@ -762,6 +767,11 @@ impl NoiseGenerator {
         self.eg.process_trigger();
         // LFSRビットのリセット
         self.lfsr = 0;
+    }
+
+    /// ボリュームの取得
+    pub fn get_volume(&self) -> u8 {
+        self.eg.get_volume()
     }
 
     /// 1システムクロック単位処理

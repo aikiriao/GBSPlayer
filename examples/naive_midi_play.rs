@@ -5,6 +5,7 @@ use gbs_player::types::*;
 use midir::MidiOutput;
 use std::env;
 use std::fmt::Error;
+use std::io::{self, Write};
 use std::thread;
 use std::time::Duration;
 use std::time::Instant;
@@ -60,9 +61,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         player.load();
         player.init(song_number);
 
+        print!("\x1B[2J\x1B[H");
+
         // 再生処理
         let _midi_thread = thread::spawn(move || {
             let interval = Duration::from_millis(MIDI_OUTPUT_INTERVAL_MS as u64);
+            let start = Instant::now();
             let mut next = Instant::now();
             loop {
                 // MIDI出力
@@ -70,6 +74,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 for i in 0..msgs.num_messages {
                     let msg = msgs.messages[i];
                     midi_out_conn.send(&msg.data[..msg.length]).unwrap();
+                    print!(
+                        "{:7.3} {:2X?}            \r",
+                        start.elapsed().as_secs_f32(),
+                        msg.data[..msg.length].to_vec()
+                    );
+                    io::stdout().flush().unwrap();
                 }
                 // ビジーループで待つ
                 next += interval;
