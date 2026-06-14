@@ -507,6 +507,7 @@ impl APUDevice for MIDIAPU {
                             self.apu_ch_status[ch].mute,
                             &[MIDIMSG_CONTROL_CHANGE | ch as u8, MIDICC_PANPOT, pan],
                         );
+                        self.apu_ch_status[ch].pan = pan;
                     }
                     if self.apu_ch_status[ch].volume != volume {
                         self.push_channel_message(
@@ -517,6 +518,7 @@ impl APUDevice for MIDIAPU {
                                 volume,
                             ],
                         );
+                        self.apu_ch_status[ch].volume = volume;
                     }
                 }
             }
