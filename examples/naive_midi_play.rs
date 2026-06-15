@@ -10,6 +10,7 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
+// MIDI出力間隔(ms)
 const MIDI_OUTPUT_INTERVAL_MS: u32 = 1;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -61,6 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         player.load();
         player.init(song_number);
 
+        // 画面フラッシュ
         print!("\x1B[2J\x1B[H");
 
         // 再生処理
