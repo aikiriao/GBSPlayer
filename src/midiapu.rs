@@ -201,19 +201,6 @@ impl MIDIAPU {
     fn noteon(&mut self, ch: u8, program: u8, volume: u8, pitch: f32) {
         let ch_status = self.apu_ch_status[ch as usize];
 
-        // ノートオフが漏れている場合はノートオフを送信
-        if ch_status.noteon {
-            let midi_ch = if ch_status.program < 0x80 {
-                ch
-            } else {
-                MIDI_PERCUSSION_CHANNEL
-            };
-            self.push_channel_message(
-                ch_status.mute,
-                &[MIDIMSG_NOTE_OFF | midi_ch, ch_status.noteno, 0],
-            );
-        }
-
         let isdrum = program >= 0x80;
         let midi_ch = if !isdrum { ch } else { MIDI_PERCUSSION_CHANNEL };
         let noteno = if !isdrum {
@@ -231,6 +218,25 @@ impl MIDIAPU {
         // リズムパートでピッチが範囲外の場合は発音をスキップ
         if !isdrum && (pitch > MAX_NOTEON_FREQUENCY || pitch < MIN_NOTEON_FREQUENCY) {
             return;
+        }
+
+        // リズムパートでノート番号が変わらないのであれば発音をスキップ
+        // 多少のピッチ変動はピッチベンドでカバーする
+        if !isdrum && ch_status.noteon && ch_status.noteno == noteno {
+            return;
+        }
+
+        // ノートオフが漏れている場合はノートオフを送信
+        if ch_status.noteon {
+            let midi_ch = if ch_status.program < 0x80 {
+                ch
+            } else {
+                MIDI_PERCUSSION_CHANNEL
+            };
+            self.push_channel_message(
+                ch_status.mute,
+                &[MIDIMSG_NOTE_OFF | midi_ch, ch_status.noteno, 0],
+            );
         }
 
         // プログラムチェンジ
