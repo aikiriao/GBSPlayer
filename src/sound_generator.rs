@@ -412,7 +412,7 @@ impl PulseGenerator {
 
     /// ピッチ周波数の取得
     pub fn get_pitch_frequency(&self) -> f32 {
-        PULSE_GENERATOR_CLOCK_HZ as f32 / (8.0 * (2048.0 - self.period as f32))
+        PULSE_GENERATOR_CLOCK_HZ as f32 / (8.0 * (self.sample_update_period as f32))
     }
 
     /// 現在のボリュームの取得
@@ -634,7 +634,7 @@ impl SampleGenerator {
 
     /// ピッチ周波数の取得
     pub fn get_pitch_frequency(&self) -> f32 {
-        SAMPLE_GENERATOR_CLOCK_HZ as f32 / (32.0 * (2048.0 - self.period as f32))
+        SAMPLE_GENERATOR_CLOCK_HZ as f32 / (32.0 * (self.sample_update_period as f32))
     }
 
     /// 1システムクロック単位処理

@@ -61,6 +61,17 @@ enum MIDIVolumeCurve {
     Linear,
 }
 
+/// ノートオンリクエスト
+#[derive(Copy, Clone, Debug)]
+struct NoteOnRequest {
+    /// プログラム番号
+    program: u8,
+    /// ボリューム
+    volume: u8,
+    /// ピッチ
+    pitch: f32,
+}
+
 /// MIDIメッセージ
 #[derive(Debug, Clone, Copy)]
 pub struct MIDIMessage {
@@ -122,6 +133,8 @@ pub struct MIDIAPU {
     message_buffer: MIDIOutput,
     /// APUから見たMIDIチャンネルの状態
     apu_ch_status: [MIDIChannelStatus; 4],
+    /// 最後に来たノートオンリクエスト
+    last_noteon_request: [Option<NoteOnRequest>; 4],
     /// MIDIステータスバイト
     status_byte: u8,
     /// MIDIの更新間隔
@@ -310,6 +323,15 @@ impl MIDIAPU {
             }
         }
 
+        // ノートオン
+        // リクエストがあった場合に後着優先で送信
+        for ch in 0..4 {
+            if let Some(request) = self.last_noteon_request[ch] {
+                self.noteon(ch as u8, request.program, request.volume, request.pitch);
+                self.last_noteon_request[ch] = None;
+            }
+        }
+
         // 再生パラメータ更新
         let ch_volume = [
             self.pulse_generator[0].get_volume(),
@@ -392,6 +414,7 @@ impl APUDevice for MIDIAPU {
                 pan: 0,
                 volume: 0,
             }; 4],
+            last_noteon_request: [None; 4],
             message_buffer: MIDIOutput {
                 messages: [MIDIMessage {
                     data: [0; 3],
@@ -430,12 +453,11 @@ impl APUDevice for MIDIAPU {
                 self.pulse_generator[0].set_period_high_control(value);
                 // ノートオン
                 if value & 0x80 != 0 {
-                    self.noteon(
-                        0,
-                        80,
-                        self.pulse_generator[0].get_volume(),
-                        self.pulse_generator[0].get_pitch_frequency(),
-                    );
+                    self.last_noteon_request[0] = Some(NoteOnRequest {
+                        program: 80,
+                        volume: self.pulse_generator[0].get_volume(),
+                        pitch: self.pulse_generator[0].get_pitch_frequency(),
+                    });
                 }
             }
             HWREG_NR21_CHANNEL2_LENGTH_TIMER_DURY_CYCLE => {
@@ -451,12 +473,11 @@ impl APUDevice for MIDIAPU {
                 self.pulse_generator[1].set_period_high_control(value);
                 // ノートオン
                 if value & 0x80 != 0 {
-                    self.noteon(
-                        1,
-                        80,
-                        self.pulse_generator[1].get_volume(),
-                        self.pulse_generator[1].get_pitch_frequency(),
-                    );
+                    self.last_noteon_request[1] = Some(NoteOnRequest {
+                        program: 80,
+                        volume: self.pulse_generator[1].get_volume(),
+                        pitch: self.pulse_generator[1].get_pitch_frequency(),
+                    });
                 }
             }
             HWREG_NR30_CHANNEL3_DAC_ENABLE => {
@@ -475,12 +496,11 @@ impl APUDevice for MIDIAPU {
                 self.sample_generator.set_period_high_control(value);
                 // ノートオン
                 if value & 0x80 != 0 {
-                    self.noteon(
-                        2,
-                        80,
-                        self.sample_generator.get_volume(),
-                        self.sample_generator.get_pitch_frequency(),
-                    );
+                    self.last_noteon_request[2] = Some(NoteOnRequest {
+                        program: 80,
+                        volume: self.sample_generator.get_volume(),
+                        pitch: self.sample_generator.get_pitch_frequency(),
+                    });
                 }
             }
             HWREG_NR41_CHANNEL4_LENGTH_TIMER => {
@@ -496,7 +516,11 @@ impl APUDevice for MIDIAPU {
                 self.noise_generator.set_control(value);
                 // ノートオン
                 if value & 0x80 != 0 {
-                    self.noteon(3, 0x80 + 40, self.noise_generator.get_volume(), 0.0);
+                    self.last_noteon_request[3] = Some(NoteOnRequest {
+                        program: 0x80 + 40,
+                        volume: self.noise_generator.get_volume(),
+                        pitch: 0.0,
+                    });
                 }
             }
             HWREG_NR50_MASTER_VOLUME_VIN_PANNING => {
