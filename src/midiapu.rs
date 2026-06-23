@@ -233,12 +233,12 @@ impl MIDIAPU {
             return;
         }
 
-        // リズムパートでピッチが範囲外の場合は発音をスキップ
+        // メロディパートでピッチが範囲外の場合は発音をスキップ
         if !isdrum && (pitch > MAX_NOTEON_FREQUENCY || pitch < MIN_NOTEON_FREQUENCY) {
             return;
         }
 
-        // リズムパートでノート番号が変わらないのであれば発音をスキップ
+        // メロディパートでノート番号が変わらないのであれば発音をスキップ
         // 多少のピッチ変動はピッチベンドでカバーする
         if !isdrum && ch_status.noteon && ch_status.noteno == noteno {
             return;
