@@ -156,6 +156,11 @@ fn herz_to_noteno(hz: f32) -> u8 {
     libm::roundf(69.0 + 12.0 * libm::log2f(hz / 440.0)).clamp(0.0, 127.0) as u8
 }
 
+/// ノート番号から周波数を計算
+fn noteno_to_herz(noteno: u8) -> f32 {
+    440.0 * libm::powf(2.0, (noteno as f32 - 69.0) / 12.0)
+}
+
 /// ゲームボーイのボリューム設定値[0,15]をMIDIのボリューム設定値に変換
 fn volume_to_midi_volume(volume_curve: MIDIVolumeCurve, gb_volume: u8) -> u8 {
     // [0, 127]の範囲に変換
@@ -293,7 +298,7 @@ impl MIDIAPU {
         ch_status.noteon = true;
         ch_status.program = program;
         ch_status.noteno = noteno;
-        ch_status.pitch_bend_base = pitch;
+        ch_status.pitch_bend_base = noteno_to_herz(noteno);
         ch_status.pitch_bend = NOTEON_PITCH_BEND;
         ch_status.expression = expression;
     }
