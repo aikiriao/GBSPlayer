@@ -227,12 +227,6 @@ impl MIDIAPU {
             program - 0x80
         };
 
-        // ボリュームが0のときは発音しない
-        // エクスプレッション0で発音しても音が出てしまうことがある
-        if volume == 0 {
-            return;
-        }
-
         // メロディパートでピッチが範囲外の場合は発音をスキップ
         if !isdrum && (pitch > MAX_NOTEON_FREQUENCY || pitch < MIN_NOTEON_FREQUENCY) {
             return;
