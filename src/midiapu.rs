@@ -46,7 +46,9 @@ const MAX_NOTEON_FREQUENCY: f32 = 12543.9;
 const MIN_NOTEON_FREQUENCY: f32 = 8.2;
 
 /// 更新間隔
-const MIDIAPU_DEFAULT_UPDATE_PERIOD_HZ: u64 = 64;
+const MIDIAPU_DEFAULT_UPDATE_PERIOD_HZ: u64 = 8192;
+/// ノートオンの最小維持時間(2MHzクロック単位)
+const MIDIAPU_MIN_NOTEON_DURATION_2MHZ: u64 = 256;
 
 /// ボリュームカーブ
 #[derive(Copy, Clone, Debug)]
@@ -70,6 +72,8 @@ struct NoteOnRequest {
     volume: u8,
     /// ピッチ
     pitch: f32,
+    /// 要求があったクロック
+    clock_tick_2mhz: u64,
 }
 
 /// MIDIメッセージ
@@ -134,6 +138,7 @@ pub struct MIDIAPU {
     /// APUから見たMIDIチャンネルの状態
     apu_ch_status: [MIDIChannelStatus; 4],
     /// 最後に来たノートオンリクエスト
+    /// ノートオンが短期間に連打されることがあるため、短すぎるノートオンは捨て、最後のノートオンのみを有効にする
     last_noteon_request: [Option<NoteOnRequest>; 4],
     /// MIDIステータスバイト
     status_byte: u8,
@@ -327,8 +332,10 @@ impl MIDIAPU {
         // リクエストがあった場合に後着優先で送信
         for ch in 0..4 {
             if let Some(request) = self.last_noteon_request[ch] {
-                self.noteon(ch as u8, request.program, request.volume, request.pitch);
-                self.last_noteon_request[ch] = None;
+                if self.clock_count - request.clock_tick_2mhz > MIDIAPU_MIN_NOTEON_DURATION_2MHZ {
+                    self.noteon(ch as u8, request.program, request.volume, request.pitch);
+                    self.last_noteon_request[ch] = None;
+                }
             }
         }
 
@@ -457,6 +464,7 @@ impl APUDevice for MIDIAPU {
                         program: 80,
                         volume: self.pulse_generator[0].get_volume(),
                         pitch: self.pulse_generator[0].get_pitch_frequency(),
+                        clock_tick_2mhz: self.clock_count,
                     });
                 }
             }
@@ -477,6 +485,7 @@ impl APUDevice for MIDIAPU {
                         program: 80,
                         volume: self.pulse_generator[1].get_volume(),
                         pitch: self.pulse_generator[1].get_pitch_frequency(),
+                        clock_tick_2mhz: self.clock_count,
                     });
                 }
             }
@@ -500,6 +509,7 @@ impl APUDevice for MIDIAPU {
                         program: 80,
                         volume: self.sample_generator.get_volume(),
                         pitch: self.sample_generator.get_pitch_frequency(),
+                        clock_tick_2mhz: self.clock_count,
                     });
                 }
             }
@@ -520,6 +530,7 @@ impl APUDevice for MIDIAPU {
                         program: 0x80 + 40,
                         volume: self.noise_generator.get_volume(),
                         pitch: 0.0,
+                        clock_tick_2mhz: self.clock_count,
                     });
                 }
             }
