@@ -238,12 +238,6 @@ impl MIDIAPU {
             return;
         }
 
-        // メロディパートでノート番号が変わらないのであれば発音をスキップ
-        // 多少のピッチ変動はピッチベンドでカバーする
-        if !isdrum && ch_status.noteon && ch_status.noteno == noteno {
-            return;
-        }
-
         // ノートオフが漏れている場合はノートオフを送信
         if ch_status.noteon {
             let midi_ch = if ch_status.program < 0x80 {
