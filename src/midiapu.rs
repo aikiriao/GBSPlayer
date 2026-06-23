@@ -291,7 +291,7 @@ impl MIDIAPU {
         let ch_status = &mut self.apu_ch_status[ch as usize];
         ch_status.noteon = true;
         ch_status.program = program;
-        ch_status.noteno = noteno;
+        ch_status.noteno = if !isdrum { noteno } else { program - 0x80 };
         ch_status.pitch_bend_base = pitch;
         ch_status.pitch_bend = NOTEON_PITCH_BEND;
         ch_status.expression = expression;
