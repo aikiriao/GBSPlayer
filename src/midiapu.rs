@@ -46,9 +46,7 @@ const MAX_NOTEON_FREQUENCY: f32 = 12543.9;
 const MIN_NOTEON_FREQUENCY: f32 = 8.2;
 
 /// 更新間隔
-const MIDIAPU_DEFAULT_UPDATE_PERIOD_HZ: u64 = 8192;
-/// ノートオンの最小維持時間(2MHzクロック単位)
-const MIDIAPU_MIN_NOTEON_DURATION_2MHZ: u64 = 256;
+const MIDIAPU_DEFAULT_UPDATE_PERIOD_HZ: u64 = 16384;
 
 /// ボリュームカーブ
 #[derive(Copy, Clone, Debug)]
@@ -227,10 +225,10 @@ impl MIDIAPU {
             program - 0x80
         };
 
-        // ボリュームが0のときは発音しない
+        // TODO: ボリュームが0のときは発音させない
         // エクスプレッション0で発音しても音が出てしまうことがある
-        // TODO: サンプルジェネレータでは意図した発音の場合があるのでオプションにした方が良い
-        if volume == 0 {
+        // サンプルジェネレータでは意図した発音の場合があるのでオプションにした方が良い
+        if ch != 2 && volume == 0 {
             return;
         }
 
@@ -325,9 +323,15 @@ impl MIDIAPU {
 
         // ノートオン
         // リクエストがあった場合に後着優先で送信
+        let noteon_enable = [
+            self.pulse_generator[0].get_period_changed(),
+            self.pulse_generator[1].get_period_changed(),
+            self.sample_generator.get_period_changed(),
+            true, // TODO: これは要検討
+        ];
         for ch in 0..4 {
             if let Some(request) = self.last_noteon_request[ch] {
-                if self.clock_count - request.clock_tick_2mhz > MIDIAPU_MIN_NOTEON_DURATION_2MHZ {
+                if noteon_enable[ch] {
                     self.noteon(ch as u8, request.program, request.volume, request.pitch);
                     self.last_noteon_request[ch] = None;
                 }

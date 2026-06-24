@@ -80,7 +80,7 @@ pub struct PulseGenerator {
     length_timer: LengthTimer,
     /// 周期
     period: u16,
-    /// 周期の変更があったか？
+    /// 周期が変更されたか？
     period_changed: bool,
     /// サンプル更新間隔
     sample_update_period: u16,
@@ -107,7 +107,7 @@ pub struct SampleGenerator {
     output_level_shift: u8,
     /// 周期
     period: u16,
-    /// 周期の変更があったか？
+    /// 周期が変更されたか？
     period_changed: bool,
     /// サンプル更新間隔
     sample_update_period: u16,
@@ -352,13 +352,13 @@ impl PulseGenerator {
     /// 周期下位ビット設定
     pub fn set_period_low(&mut self, value: u8) {
         self.period = (self.period & 0xFF00) | (value as u16);
-        self.period_changed = true;
+        self.period_changed = false;
     }
 
     /// 周期上位ビット・制御フラグ設定
     pub fn set_period_high_control(&mut self, value: u8) {
         self.period = (((value & 0x7) as u16) << 8) | (self.period & 0x00FF);
-        self.period_changed = true;
+        self.period_changed = false;
         self.length_timer.set_enable((value & 0x40) != 0);
         self.trigger = (value & 0x80) != 0;
         if self.trigger {
@@ -415,6 +415,11 @@ impl PulseGenerator {
         PULSE_GENERATOR_CLOCK_HZ as f32 / (8.0 * (self.sample_update_period as f32))
     }
 
+    /// 周期が更新されたか？
+    pub fn get_period_changed(&self) -> bool {
+        self.period_changed
+    }
+
     /// 現在のボリュームの取得
     pub fn get_volume(&self) -> u8 {
         self.eg.get_volume()
@@ -428,10 +433,12 @@ impl PulseGenerator {
         if self.length_timer.get_expired() {
             self.length_timer.process_trigger();
         }
-        // 周期の設定
-        self.sample_update_period = 2048 - self.period;
         // エンベロープジェネレータのトリガー処理
         self.eg.process_trigger();
+        // サンプル更新タイマーリセット
+        self.sample_update_counter = 0;
+        // サンプル更新周期の設定
+        self.sample_update_period = 2048 - self.period;
     }
 
     /// 周期更新処理
@@ -470,9 +477,9 @@ impl PulseGenerator {
                 self.pulse_table_index = (self.pulse_table_index + 1) & 0x7;
                 self.sample_update_counter -= self.sample_update_period;
                 // 周期の反映はサンプル出力後
-                if self.period_changed {
+                if !self.period_changed {
                     self.sample_update_period = 2048 - self.period;
-                    self.period_changed = false;
+                    self.period_changed = true;
                 }
             }
 
@@ -541,13 +548,13 @@ impl SampleGenerator {
     /// 周期下位ビット設定
     pub fn set_period_low(&mut self, value: u8) {
         self.period = (self.period & 0xFF00) | (value as u16);
-        self.period_changed = true;
+        self.period_changed = false;
     }
 
     /// 周期上位ビット・制御フラグ設定
     pub fn set_period_high_control(&mut self, value: u8) {
         self.period = (((value & 0x7) as u16) << 8) | (self.period & 0x00FF);
-        self.period_changed = true;
+        self.period_changed = false;
         self.length_enable = (value & 0x40) != 0;
         self.trigger = (value & 0x80) != 0;
         if self.trigger {
@@ -621,10 +628,12 @@ impl SampleGenerator {
         if self.length_timer.get_expired() {
             self.length_timer.process_trigger();
         }
-        // 更新周期の設定
-        self.sample_update_period = 2048 - self.period;
         // サンプル参照位置のリセット
         self.wave_ram_index = 1;
+        // サンプル更新タイマーリセット
+        self.sample_update_counter = 0;
+        // サンプル更新周期の設定
+        self.sample_update_period = 2048 - self.period;
     }
 
     /// 現在のボリュームの取得
@@ -635,6 +644,11 @@ impl SampleGenerator {
     /// ピッチ周波数の取得
     pub fn get_pitch_frequency(&self) -> f32 {
         SAMPLE_GENERATOR_CLOCK_HZ as f32 / (32.0 * (self.sample_update_period as f32))
+    }
+
+    /// 周期が更新されたか？
+    pub fn get_period_changed(&self) -> bool {
+        self.period_changed
     }
 
     /// 1システムクロック単位処理
@@ -651,9 +665,9 @@ impl SampleGenerator {
                 self.wave_ram_index = (self.wave_ram_index + 1) & 0x1F;
                 self.sample_update_counter -= self.sample_update_period;
                 // 周期の反映はサンプル出力後
-                if self.period_changed {
+                if !self.period_changed {
                     self.sample_update_period = 2048 - self.period;
-                    self.period_changed = false;
+                    self.period_changed = true;
                 }
             }
 
