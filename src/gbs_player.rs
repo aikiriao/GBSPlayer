@@ -119,16 +119,9 @@ where
     pub fn output_audio_sample(&mut self) -> A::Output {
         // サンプリング周期になるまで命令実行
         while self.elapsed_cycles < DMG_SYSTEM_CLOCK_HZ {
-            // 命令実行
-            let (_, cycle) = self.cpu.execute_step();
-            // サイクルカウントを累積
-            self.elapsed_cycles += cycle as u32 * self.sampling_rate;
-            // 待機処理でplay/initアドレスに来てしまったら戻す
-            if self.cpu.regs.pc == self.gbs_header.play_address
-                || self.cpu.regs.pc == self.gbs_header.init_address
-            {
-                self.cpu.regs.pc = GBSPLAYER_INIT_PLAY_RETURN_ADDRESS;
-            }
+            // サイクルカウント累積
+            self.cpu.system_clock_tick();
+            self.elapsed_cycles += self.sampling_rate;
             // 割り込み処理
             if self.check_play_interrupt() {
                 // 割り込みフラグをクリア
@@ -142,6 +135,13 @@ where
                 self.push_stack(((GBSPLAYER_INIT_PLAY_RETURN_ADDRESS >> 8) & 0xFF) as u8);
                 self.push_stack(((GBSPLAYER_INIT_PLAY_RETURN_ADDRESS >> 0) & 0xFF) as u8);
                 self.cpu.regs.pc = self.gbs_header.play_address;
+            }
+            // 再生ルーチン処理
+            while self.cpu.regs.pc != GBSPLAYER_INIT_PLAY_RETURN_ADDRESS
+                && self.elapsed_cycles < DMG_SYSTEM_CLOCK_HZ
+            {
+                let (_, cycle) = self.cpu.execute_step();
+                self.elapsed_cycles += cycle as u32 * self.sampling_rate;
             }
         }
         self.elapsed_cycles -= DMG_SYSTEM_CLOCK_HZ;

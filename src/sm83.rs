@@ -351,7 +351,7 @@ where
     }
 
     /// システムクロック(M-Cycle)ティック
-    fn system_clock_tick(&mut self) {
+    pub fn system_clock_tick(&mut self) {
         // タイマーティック
         self.timer_tick_mcycle_count += 1;
         if self.timer_tick_mcycle_count >= self.timer_increment_mcycle {
